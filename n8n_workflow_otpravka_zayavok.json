@@ -1,0 +1,448 @@
+{
+  "name": "25 точек / Отправка заявок поставщикам",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5612c781-47d6-48ae-add7-3e862c33407a",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7d2874d6-a72e-49e1-a3fd-916bbb9a7f81",
+      "name": "Webhook",
+      "webhookId": "5612c781-47d6-48ae-add7-3e862c33407a"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        560
+      ],
+      "id": "72a0ac82-e1f9-44f9-b6ac-3533c1759f71",
+      "name": "Получаем сообщения от бота",
+      "webhookId": "edbe43b7-4d7b-404f-af1a-789601bee80c",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://77.73.232.184:12000/suppliers/update-telegram-id",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telegram_id",
+              "value": "={{ $json.message.from.id }}"
+            },
+            {
+              "name": "telegram_username",
+              "value": "={{ $json.message.chat.username }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        560
+      ],
+      "id": "d86c453c-61ac-469a-a03c-5f8a22dc64e8",
+      "name": "Отправляем полученный id пользователя на сервер",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $('Webhook').item.json.body.telegram_id }}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "Новая заявка на товар!"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "35dcaf4e-34aa-4bbe-b2b7-c5c57ac621e7",
+      "name": "Send a document",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.excel_file_base64",
+        "options": {
+          "fileName": "={{ $json.body.excel_filename }}",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "3161680a-0ad4-4933-93bb-156d14ad81ee",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook').item.json.body.callback_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=  {\n    \"status\": \"error\",\n    \"item_ids\": {{ $('Webhook').item.json.body.item_ids }},\n    \"error_message\": \"{{ $json.error || 'Ошибка при отправке' }}\"\n  }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        128
+      ],
+      "id": "bfadb790-3c25-4e57-a901-c0000c44bfb0",
+      "name": "Error"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook').item.json.body.callback_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"success\",\n  \"item_ids\": [{{ $('Webhook').item.json.body.item_ids }}]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        -112
+      ],
+      "id": "91aea942-a19b-4373-8998-450c8aec2708",
+      "name": "Success"
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "=1078538418",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "=Заявка на товар отправлена поставщику {{ $('Webhook').item.json.body.supplier_name }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "a4b282dc-5dc4-4395-94eb-4dc32d269354",
+      "name": "Send a document1",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=944568244",
+        "text": "=Ошибка при отправке заявки на товар поставщику {{ $('Webhook').item.json.body.supplier_name }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        128
+      ],
+      "id": "c856e511-0754-4550-8658-7a99935258eb",
+      "name": "Send a text message",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=1078538418",
+        "text": "=@{{ $('Получаем сообщения от бота').item.json.message.from.username }}, id {{ $('Получаем сообщения от бота').item.json.message.from.id }} подключен к боту.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        656
+      ],
+      "id": "166db1cb-7389-4b04-9729-bc2eed50ef43",
+      "name": "Send a text message1",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=1078538418",
+        "text": "=@{{ $('Получаем сообщения от бота').item.json.message.from.username }}, id {{ $('Получаем сообщения от бота').item.json.message.from.id }} пытается подключиться к боту, но получает ошибку.\nЧтобы успешно подключиться нужно сначала завести поставщика в Dashboard\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        784
+      ],
+      "id": "663c5b47-a409-4b7a-9fbb-235edd211c5c",
+      "name": "Send a text message2",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Получаем сообщения от бота').item.json.message.from.id }}",
+        "text": "=Подключиться к боту не удалось.\nЧтобы успешно подключиться попросите меденжера добавить вас в систему.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        464
+      ],
+      "id": "443542d6-2c73-4028-832a-19e3a531dc2d",
+      "name": "Send a text message3",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Получаем сообщения от бота').item.json.message.from.id }}",
+        "text": "=Вы подключены к боту для получения заказов.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        320
+      ],
+      "id": "293e0da7-3dcf-46c0-908b-9b63c880b2d6",
+      "name": "Send a text message4",
+      "webhookId": "adccd00b-e738-45c1-bcf7-481716f085ba",
+      "credentials": {
+        "telegramApi": {
+          "id": "iwCCCR6OeIAUtSKK",
+          "name": "Telegram / 25 точек / Отправка поставщикам"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "c8b2981f-7642-4c2e-a22b-5c60126d3c65",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Получаем сообщения от бота": {
+      "main": [
+        [
+          {
+            "node": "Отправляем полученный id пользователя на сервер",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a document": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send a document",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Success": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Отправляем полученный id пользователя на сервер": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message2": {
+      "main": [
+        []
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Send a document1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "66a0c4dd-68f2-4ef7-a57f-d61520819f83",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "373baed55bee30d41578d20bc6ddf4016a5ad31fbcd9678e5e4e27735e939173"
+  },
+  "id": "kuWOGfaSkuYQ2uEj",
+  "tags": []
+}

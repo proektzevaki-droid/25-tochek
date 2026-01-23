@@ -1,0 +1,41 @@
+# Environment variables (содержит пароли!)
+.env
+
+# Database (содержит данные клиентов!)
+app.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Exports (временные файлы)
+exports/
+*.xlsx
+*.xls
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups
+backup_*.tar.gz

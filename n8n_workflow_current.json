@@ -1,0 +1,2281 @@
+{
+  "name": "Заказы с 25 точек_Добро / Внутренние таблицы",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "callback_query",
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3152,
+        336
+      ],
+      "id": "92b89c9d-4c29-4247-b0fc-11ba33fdf5f6",
+      "name": "Telegram Trigger",
+      "webhookId": "4ec891ea-1a5a-4e02-84b8-6c0c5e7d2c93",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot8277467815:AAHgtz1Tplm3Xw_Qfxb28r6TlgSOPsY9-ys/getFile?file_id={{ $('Telegram Trigger').first().json.message.voice.file_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        -400
+      ],
+      "id": "13126388-cf16-4dc7-8a4c-a922d166841e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/bot8277467815:AAHgtz1Tplm3Xw_Qfxb28r6TlgSOPsY9-ys/{{ $json.result.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        -400
+      ],
+      "id": "b9cd6bde-0ac7-4fdc-b442-44c3a8f571e2",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "ru",
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -384,
+        -400
+      ],
+      "id": "890cc2bc-80cb-461d-bf3b-d8e61e39ab6e",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "mzN8RwZWwQ3uPa0E",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+        "text": "=🎙 Расшифровка: <b>{{$json[\"text\"]}}</b>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -32,
+        -496
+      ],
+      "id": "90065b02-8e03-4c0b-9bdc-7d06ed65e123",
+      "name": "Send a text message",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=## 🛍️ **Промт для помощника магазина**\n\nТы помощник для магазина.\nТвоя задача — преобразовать текст заказа в **JSON** и создать понятный текст для пользователя.\n\n---\n\n### ⚠️ **ВАЖНО**\n\n* Всегда указывай товар полностью, **не разделяй название на части**\n* Если указано количество и форма слова **«штуки/штук»** — это относится к **предыдущему товару**\n* Все числа должны быть **числами**, не словами\n* **Самостоятельно ищи наиболее похожие товары в базе данных**\n* Если уверенность в совпадении < 95% — добавляй предупреждение в `summary_text`\n* Всегда выбирай **наиболее подходящий товар** из найденных вариантов\n* Все заявки составляются **на русском языке**\n\n\n### 📏 КРИТИЧЕСКИ ВАЖНО: Единицы измерения\nВСЕГДА используй unit из базы данных, ИГНОРИРУЙ единицы из текста заказа!\nИспользуй только эти значинния unit:\n```\n{{ $('Code in JavaScript1').item.json.toJsonString() }}\n```\nДругие значения для unit изпользовать запрещается\n\nПравило:\nНайди товар в БД → возьми его unit\nИгнорируй любые единицы измерения из речи пользователя (\"штук\", \"упаковок\", \"ведер\", \"коробок\" и т.д.)\nИспользуй только unit из базы данных для этого товара\n\nПримеры:\n❌ НЕПРАВИЛЬНО:\nПользователь: \"Вилка 5 штук\"\nБД: unit = \"пач.\"\nРезультат: product_unit: \"шт.\" ← ОШИБКА!\n\n✅ ПРАВИЛЬНО:\nПользователь: \"Вилка 5 штук\"\nБД: unit = \"пач.\"\nРезультат: product_unit: \"пач.\" ← Берём из БД!\n❌ НЕПРАВИЛЬНО:\nПользователь: \"Конфитюр 3 ведра\"\nБД: unit = \"ведро\"\nРезультат: product_count: 3, product_unit: \"ведро\"\nsummary_text: \"- Конфитюр — 3 ведро\" ← ОШИБКА склонения!\n\n✅ ПРАВИЛЬНО:\nПользователь: \"Конфитюр 3 ведра\"\nБД: unit = \"ведро\"\nРезультат: product_count: 3, product_unit: \"ведро\"\nsummary_text: \"- Конфитюр — 3 ведра\" ← Правильное склонение!\nАлгоритм:\n\nИзвлеки количество из текста (число)\nИзвлеки название товара (игнорируя единицы измерения)\nНайди товар в БД\nИспользуй unit из БД → помести в product_unit\nВ summary_text просклоняй unit правильно относительно количества\n\n---\n\n### 🔍 **Алгоритм поиска товаров**\n\nДля каждого товара из заказа применяй последовательно:\n\n#### **0: Обработка чисел**\n\nЕсли товар не найден, но есть число в конце названия (с дефисом или без):\n- Попробуй отделить число как количество\n- Поищи оставшуюся часть в БД\n- Если найдено — используй это название + число как количество\n\n#### **1. Точное совпадение** (игнорируя регистр)\n```\n\"сок яблоко\" = \"Сок Яблоко\" → ✅ confidence: 100\n```\n\n#### **2. Игнорирование лишних слов**\n```\n\"Вилка Кристалл большая\" → ищи \"Вилка Кристалл\"\n\"венские сосиски хорошие\" → ищи \"Сосиски Венские\"\n\nЕсли найден ОДИН товар с таким началом → ✅ используй его, confidence: 95\nЕсли найдено НЕСКОЛЬКО → выбери наиболее подходящий, но добавь альтернативы\n```\n\n#### **3. Fuzzy matching (опечатки)**\n```\nРасстояние Левенштейна ≤ 2 символа:\n\"Конфисюр\" → \"Конфитюр\" ✅ confidence: 80-90\n\"Соосиски\" → \"Сосиски\" ✅ confidence: 80-90\n\nЕсли найдено несколько вариантов → выбери первый по алфавиту, но укажи альтернативы\n```\n\n#### **4. Семантический поиск по компонентам**\n```\nДля напитков/соков:\n- Категории \"Сок\", \"Напиток\", \"Нектар\", \"Морс\" — синонимы\n- Извлекай компоненты: [категория] [бренд] [вкус]\n- Ищи по: бренд + вкус (игнорируя категорию)\n\nПримеры:\n\"Сок Любимый Яблоко\" → \"Напиток Любимый Яблоко\" ✅ confidence: 95\n\"Сок Яблоко\" → \"Напиток Любимый Яблоко\" ✅ confidence: 70 (только по вкусу)\n\nДля товаров с вариантами (конфитюры, напитки и т.д.):\n- Если указан вариант/вкус → ищи точное совпадение\n- Если НЕ указан вариант → выбери первый найденный, но укажи все варианты в summary_text\n```\n\n#### **5. Частичное совпадение**\n```\n\"вилка\" → БД: [\"Вилка Кристалл\", \"Вилка Премиум\"]\n→ Выбери первый вариант по алфавиту: \"Вилка Кристалл\"\n→ Но добавь в summary_text все найденные варианты\n→ confidence: 60-70\n```\n\n#### **6. Не найдено**\n```\nЕсли ничего не найдено с confidence > 50:\n→ НЕ добавляй товар в items\n→ Создай предупреждение в summary_text\n→ order_status = \"blocked\"\n```\n\n---\n\n### 📊 **Правила для confidence**\n\n- **100**: точное совпадение названия\n- **95**: найден один товар с незначительными отличиями (лишние слова)\n- **80-90**: fuzzy match (опечатка исправлена) или найден по синонимам\n- **60-75**: найдено несколько вариантов, выбран один (нужно показать альтернативы)\n- **< 60**: не найдено (НЕ добавлять в items, только предупреждение)\n\n---\n\n### 📝 **Структура JSON**\n```json\n{\n  \"items\": [\n    {\n      \"product_id\": id товара,\n      \"product_type\": \"тип\",\n      \"product_subtype\": \"подтип\",\n      \"product_name\": \"товар\",\n      \"product_count\": количество,\n      \"product_unit\": \"единица измерения\",\n      \"suppliers_id\": id поставщика,\n      \"suppliers_name\": \"Название поставщика\",\n      \"confidence\": 0-100,\n      \"original_text\": \"что сказал пользователь (если отличается от product_name)\",\n      \"alternatives\": [\"альтернатива 1\", \"альтернатива 2\"],\n      \"quantity_assumed\": true/false  // если количество не было указано и установлено автоматически\n    }\n  ],\n  \"order_status\": \"ready\" | \"needs_confirmation\" | \"blocked\",\n  \"summary_text\": \"текст с описанием заказа и всех предупреждений для пользователя\"\n}\n```\n\n---\n\n### 💬 **Формирование `summary_text`**\n\n\n\n#### **Шаблон 1: Всё ОК (confidence = 100 для всех)**\n```\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\nВсё верно? Нажмите «Подтвердить»\n```\nВ summary_text **после количества укажи единицы измерения** в соответствующем падеже и словоформе\n\n**Пример:**\n```\n- Сок Апельсин — 2\n- Вилка Кристалл — 10\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n---\n\n#### **Шаблон 2: Есть неточности/исправления (confidence < 95)**\n```\n- {product_name} — {count}\n- {product_name} — {count}\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"{original_text}\", исправлено на {product_name}.\n{если quantity_assumed}Вы не указали количество, поэтому установили {count}.{/если}\n{если есть alternatives}Есть другие варианты товара: {alternative1}, {alternative2}, {alternative3}.{/если}\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n**Пример:**\n```\n- Конфитюр Вишня — 1\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"Конфисюр\", исправлено на Конфитюр Вишня.\nВы не указали количество, поэтому установили 1.\nЕсть другие варианты товара: Конфитюр Яблоко, Конфитюр Малина, Конфитюр Смородина.\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n---\n\n#### **Шаблон 3: Несколько товаров с исправлениями**\n```\n- {product_name} — {count}\n- {product_name} — {count}\n- {product_name} — {count}\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"{original_text1}\", исправлено на {product_name1}.\n{дополнительная информация}\n\n- Вы сказали: \"{original_text2}\", исправлено на {product_name2}.\n{дополнительная информация}\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n**Пример:**\n```\n- Конфитюр Вишня — 1\n- Вилка Кристалл — 5\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"конфисюр\", исправлено на Конфитюр Вишня.\nВы не указали количество, поэтому установили 1.\nЕсть другие варианты товара: Конфитюр Яблоко, Конфитюр Малина.\n\n- Вы сказали: \"вилка\", исправлено на Вилка Кристалл.\nЕсть другие варианты товара: Вилка Премиум.\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n---\n\n#### **Шаблон 4: Товар не найден (order_status = \"blocked\")**\n```\n{список найденных товаров}\n\n❌ Не найден товар: \"{original_text}\"\n\nВозможно, вы имели в виду:\n- {похожий товар 1}\n- {похожий товар 2}\n- {похожий товар 3}\n\n🚫 Заказ не может быть отправлен.\nНажмите «Изменить» и уточните название, или свяжитесь с менеджером.\n```\n\n**Пример:**\n```\n- Сок Апельсин — 2\n\n❌ Не найден товар: \"какая-то упаковка\"\n\nВозможно, вы имели в виду:\n- Контейнер (179) прямоугольный 750 мл\n- Контейнер ИПК-500 круглый\n- Крышка для контейнера ИПК-250/500\n\n🚫 Заказ не может быть отправлен.\nНажмите «Изменить» и уточните название, или свяжитесь с менеджером.\n```\n\n---\n\n### 📋 **Правила для `order_status`**\n```\n\"ready\" = все товары с confidence >= 95, можно отправлять сразу\n\"needs_confirmation\" = есть товары с confidence 60-94, нужна проверка пользователя\n\"blocked\" = есть товары с confidence < 60 (не найдены), отправка невозможна\n```\n\n---\n\n### 🎯 **Важные правила**\n\n1. **ВСЕГДА выбирай товар из базы** (даже если уверенность низкая) — НЕ оставляй items пустым, кроме случаев когда ничего не найдено (confidence < 60)\n\n2. **Показывай максимум 3 альтернативы** в поле `alternatives` и в тексте предупреждения\n\n3. **Сортируй альтернативы** по confidence (от большего к меньшему)\n\n4. **НЕ используй эмодзи** в начале summary_text (они будут добавлены автоматически)\n\n5. **Заполняй `original_text`** только если есть расхождение с `product_name`\n\n6. **Заполняй `alternatives`** только если найдено >1 похожих товаров\n\n7. **Заполняй `quantity_assumed = true`** если количество не было указано пользователем и ты установил его автоматически (по умолчанию 1)\n\n8. **Для товаров с вариантами** (Конфитюр Вишня, Конфитюр Яблоко):\n   - Если вариант НЕ указан → выбери первый по алфавиту, но покажи ВСЕ варианты в alternatives\n   - Если вариант указан → ищи точное совпадение\n\n9. **Единицы измерения ТОЛЬКО из базы данных:**\n   - ВСЕГДА используй `unit` из БД для товара\n   - ИГНОРИРУЙ единицы из речи пользователя\n   - В `summary_text` правильно склоняй единицу относительно количества\n   - Пример: БД unit=\"пач.\" → \"1 пачка\", \"2 пачки\", \"5 пачек\"\n\n10. **`summary_text` должен быть понятным обычному пользователю** — избегай технических терминов, пиши простым языком\n\n---\n\n### 📦 **Товары из базы данных**\n```\n{{ $('HTTP Request5').item.json.Поставщики.toJsonString() }}\n```\n\n### 🔧 **Исключения (правила привязки поставщиков)**\n```\n{{ $('HTTP Request5').item.json.Исключения.toJsonString() }}\n```\n\n---\n\n### 📝 **Текст заказа (расшифровка голосового сообщения):**\n```\n{{ $('Transcribe a recording').item.json.text }}\n```\n\n---\n\n### ✅ **Проверь себя перед ответом:**\n\n- [ ] Все найденные товары добавлены в `items` (кроме тех, что с confidence < 60)?\n- [ ] Для товаров с низким confidence заполнены `original_text` и `alternatives`?\n- [ ] `summary_text` содержит product_unit в правильной словоформе?\n- [ ] `summary_text` НЕ начинается с заголовка \"Ваш заказ\"?\n- [ ] Для товаров с автоматически установленным количеством проставлен `quantity_assumed = true`?\n- [ ] `order_status` корректно отражает готовность заказа?\n- [ ] Текст понятен обычному пользователю (без технического жаргона)?\n- [ ] Альтернативные товары показаны (максимум 3)?\n- [ ] Если было несколько исправлений, каждое оформлено отдельным пунктом?"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        656,
+        -416
+      ],
+      "id": "388d8665-8002-4584-8beb-67bdf53ddbb0",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "mzN8RwZWwQ3uPa0E",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Подтвердить",
+                    "additionalFields": {
+                      "callback_data": "confirm"
+                    }
+                  },
+                  {
+                    "text": "✏ Изменить",
+                    "additionalFields": {
+                      "callback_data": "edit"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        -320
+      ],
+      "id": "fa9d866a-7581-4969-94f0-83a696f893c0",
+      "name": "Send a text message1",
+      "webhookId": "97b224d4-593d-4eb6-9bc2-1c26d22cdc2b",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+        "messageId": "={{ $('Telegram Trigger').item.json.callback_query.message.message_id }}",
+        "text": "=✅ Подтверждено \n\n{{ $('Telegram Trigger').item.json.callback_query.message.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -192,
+        256
+      ],
+      "id": "638a7567-5de1-4547-8e99-714ee926d1b1",
+      "name": "Edit a text message",
+      "webhookId": "9575cebf-7de1-4c97-a1f8-b3c5f58dfcfc",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+        "text": "=Заказ подтверждён",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        256
+      ],
+      "id": "2589eda1-d97f-4a3b-aa82-2ce6f572c30f",
+      "name": "Send a text message2",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "user_id",
+              "lookupValue": "={{ $json.message.chat.id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1328,
+        -608
+      ],
+      "id": "0bd6185b-aa98-46dc-baf7-880335d9d675",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+        "text": "=Вы не выбрали точку, пропишите /start чтобы выбрать",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -736,
+        -576
+      ],
+      "id": "5ce56b21-cd82-4a08-aa08-686f75449c6a",
+      "name": "Send a text message3",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot8277467815:AAHgtz1Tplm3Xw_Qfxb28r6TlgSOPsY9-ys/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.data }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -944,
+        1200
+      ],
+      "id": "03a5bd2d-6a57-47ec-871a-dcd1ae040c8a",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем все элементы из предыдущей ноды (HTTP Request к /points)\nconst items = $input.all();\n\n// Берём chat_id из Telegram Trigger\nconst chat_id = $node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"];\n\n// Ищем точку с соответствующим idTg\nconst matchedPoint = items.find(item => item.json[\"idTg\"] == chat_id);\n\n// Формируем текст сообщения\nlet text;\nlet found = false;\nlet pointName = null;\nlet pointId = null;\n\nif (matchedPoint) {\n    text = `Здравствуйте, ваша точка ${matchedPoint.json[\"name\"]}`;\n    found = true;\n    pointName = matchedPoint.json[\"name\"];\n    pointId = matchedPoint.json[\"id\"];\n} else {\n    text = `Не удалось найти привязанную точку к id: ${chat_id}`;\n}\n\n// Формируем payload для Telegram (с reply_markup)\nconst telegram_payload = {\n    chat_id: chat_id,\n    text: text,\n    parse_mode: \"HTML\",\n    reply_markup: {\n        keyboard: [\n            [\n                {\n                    text: \"Создать заявку\"\n                }\n            ]\n        ],\n        resize_keyboard: true\n    }\n};\n\n// Возвращаем объект с данными и статусом\nreturn { \n    data: telegram_payload,  // для отправки в Telegram\n    found: found,            // true/false, нашли ли точку\n    pointName: pointName,    // название точки (или null)\n    pointId: pointId         // id точки (или null)\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        1200
+      ],
+      "id": "edd78afa-3e98-4541-a41a-e1ec97fc5d76",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+        "messageId": "={{ $('Telegram Trigger').item.json.callback_query.message.message_id }}",
+        "text": "={{ $('Telegram Trigger').item.json.callback_query.message.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -976,
+        688
+      ],
+      "id": "155486f0-11d2-4075-a2d0-4ac4eb39384d",
+      "name": "Edit a text message1",
+      "webhookId": "9575cebf-7de1-4c97-a1f8-b3c5f58dfcfc",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+        "text": "=🎙 Проговорите голосом, что на что нужно заменить",
+        "replyMarkup": "=",
+        "forceReply": {},
+        "replyKeyboardOptions": {},
+        "replyKeyboardRemove": {},
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -784,
+        688
+      ],
+      "id": "5df4a324-c1a2-4e0b-b9f5-355607eaf009",
+      "name": "Send a text message6",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "user_id",
+              "lookupValue": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1360,
+        512
+      ],
+      "id": "75717512-2900-4ca8-844b-f94d7f38fd7a",
+      "name": "Get row(s) in sheet3",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit?gid=700338570#gid=700338570",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "point": "={{ $json.point }}",
+            "status": "Изменения",
+            "user_id": "={{ $json.user_id }}",
+            "message": "={{ $('Telegram Trigger').item.json.callback_query.message.text }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1184,
+        512
+      ],
+      "id": "4f798d60-efbe-4f4e-ab34-d1d962e8062e",
+      "name": "Update row in sheet1",
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=# 🛍️ Промт для изменения заказа\nТы помощник для магазина.\nТвоя задача — применить изменения к текущему заказу и вернуть обновленный JSON с понятным текстом для пользователя.\n\n## 📋 Текущий заказ:\n{{ $('Get row(s)2').item.json.message }}\n\n## 🎤 Пользователь сказал, что нужно изменить:\n{{ $('Transcribe a recording').item.json.text }}\n\n## ⚠️ ВАЖНО\n\nПрименяй изменения к текущему заказу (добавить/удалить/заменить товары)\nЗамены нужно вносить именно в соответствующую позицию (например: «батон 3 заменить на молоко 2% 2» → заменяем батон на молоко)\nЕсли товар новый — добавь его в заказ\nЕсли товар нужно удалить — убери его из заказа\nЕсли нужно изменить количество — обнови product_count\nСамостоятельно ищи наиболее похожие товары в базе данных\nЕсли уверенность в совпадении < 95% — добавляй предупреждение в summary_text\nЕсли товар добавили или убрали — обязательно проверяй на исключения, может измениться поставщик\nВозвращай ПОЛНЫЙ обновлённый список товаров (все товары из исходного заказа + изменения)\n\n\n## 📏 КРИТИЧЕСКИ ВАЖНО: Единицы измерения\nВСЕГДА используй unit из базы данных, ИГНОРИРУЙ единицы из текста заказа!\n\nИспользуй только эти значинния unit:\n```\n{{ $('Code in JavaScript1').item.json.toJsonString() }}\n```\nДругие значения для unit изпользовать запрещается\n\nПравило:\nНайди товар в БД → возьми его unit\nИгнорируй любые единицы измерения из речи пользователя (\"штук\", \"упаковок\", \"ведер\", \"коробок\" и т.д.)\nИспользуй только unit из базы данных для этого товара\nДля существующих товаров из текущего заказа — сохраняй их product_unit без изменений\n\nПримеры:\n❌ НЕПРАВИЛЬНО:\nПользователь: \"добавить Вилка 5 штук\"\nБД: unit = \"пач.\"\nРезультат: product_unit: \"шт.\" ← ОШИБКА!\n\n✅ ПРАВИЛЬНО:\nПользователь: \"добавить Вилка 5 штук\"\nБД: unit = \"пач.\"\nРезультат: product_unit: \"пач.\" ← Берём из БД!\n❌ НЕПРАВИЛЬНО:\nТекущий заказ: Конфитюр — 2 ведра\nПользователь: \"Конфитюр 3 коробки\"\nРезультат: product_count: 3, product_unit: \"коробки\" ← ОШИБКА!\n\n✅ ПРАВИЛЬНО:\nТекущий заказ: Конфитюр — 2 ведра\nПользователь: \"Конфитюр 3 коробки\"\nРезультат: product_count: 3, product_unit: \"ведро\" ← Сохраняем из БД!\nАлгоритм:\n\nИзвлеки количество из текста (число)\nИзвлеки название товара (игнорируя единицы измерения)\nНайди товар в БД или в текущем заказе\nИспользуй unit из БД → помести в product_unit\nВ summary_text просклоняй unit правильно относительно количества\n\n\n## 🔍 Алгоритм поиска товаров\nИспользуй те же правила поиска:\n### 0: Обработка чисел\nЕсли товар не найден, но есть число в конце названия (с дефисом или без):\n\nПопробуй отделить число как количество\nПоищи оставшуюся часть в БД\nЕсли найдено — используй это название + число как количество\n\n### 1. Точное совпадение (игнорируя регистр)\n\"сок яблоко\" = \"Сок Яблоко\" → ✅ confidence: 100\n\n### 2. Игнорирование лишних слов\n\"Вилка Кристалл большая\" → ищи \"Вилка Кристалл\"\n\nЕсли найден ОДИН товар → ✅ используй его, confidence: 95\nЕсли найдено НЕСКОЛЬКО → выбери наиболее подходящий, но добавь альтернативы\n\n### 3. Fuzzy matching (опечатки)\nРасстояние Левенштейна ≤ 2 символа:\n\"Конфисюр\" → \"Конфитюр\" ✅ confidence: 80-90\n\n### 4. Семантический поиск\nДля напитков: \"Сок\" = \"Напиток\" = \"Нектар\"\nДля товаров с вариантами: если вариант НЕ указан → выбери первый, покажи альтернативы\n\n### 5. Частичное совпадение\n\"вилка\" → БД: [\"Вилка Кристалл\", \"Вилка Премиум\"]\n→ Выбери первый по алфавиту, но добавь альтернативы\n→ confidence: 60-70\n\n### 6. Не найдено\nЕсли ничего не найдено с confidence > 50:\n→ НЕ добавляй товар в items\n→ Создай предупреждение в summary_text\n→ order_status = \"blocked\"\n\n## 📝 Структура JSON\njson{\n  \"items\": [\n    {\n      \"product_id\": id товара,\n      \"product_type\": \"тип\",\n      \"product_subtype\": \"подтип\",\n      \"product_name\": \"товар\",\n      \"product_count\": количество,\n      \"product_unit\": \"единица измерения\",\n      \"suppliers_id\": id поставщика,\n      \"suppliers_name\": \"Название поставщика\",\n      \"confidence\": 0-100,\n      \"original_text\": \"что сказал пользователь (если отличается от product_name)\",\n      \"alternatives\": [\"альтернатива 1\", \"альтернатива 2\"],\n      \"quantity_assumed\": true/false,\n      \"action\": \"added\" | \"removed\" | \"updated\" | \"unchanged\"  // что сделали с товаром\n    }\n  ],\n  \"order_status\": \"ready\" | \"needs_confirmation\" | \"blocked\",\n  \"summary_text\": \"текст с описанием изменений и всех предупреждений для пользователя\"\n}\n```\n\n---\n\n## 💬 **Формирование `summary_text`**\n\n⚠️ **ВАЖНО:** \n- Начинай текст сразу со списка товаров\n- **Покажи, что именно изменилось** в заказе\n\n---\n\n### **Шаблон 1: Изменения применены успешно (confidence = 100)**\n```\n✅ Обновленный заказ:\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\nВсё верно? Нажмите «Подтвердить»\n```\n**После количества укажи единицы измерения** в соответствующем падеже и словоформе\n\n**Пример:**\n```\n✅ Обновленный заказ:\n- Сок Апельсин — 2 шт.\n- Молоко 2% — 2 шт.\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n---\n\n### **Шаблон 2: Есть неточности при изменении**\n```\n✅ Обновленный заказ:\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"{original_text}\", исправлено на {product_name}.\n{если quantity_assumed}Вы не указали количество, поэтому установили {count}.{/если}\n{если есть alternatives}Есть другие варианты товара: {alternative1}, {alternative2}.{/если}\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n**Пример:**\n```\n✅ Обновленный заказ:\n- Сок Апельсин — 2 шт.\n- Конфитюр Вишня — 1 ведро\n\n⚠️ Исправлены возможные опечатки:\n\n- Вы сказали: \"добавить конфисюр\", исправлено на Конфитюр Вишня.\nВы не указали количество, поэтому установили 1.\nЕсть другие варианты товара: Конфитюр Яблоко, Конфитюр Малина, Конфитюр Смородина.\n\nЕсли всё верно — нажмите «Подтвердить»\nЕсли нет — нажмите «Изменить»\n```\n\n---\n\n### **Шаблон 3: Товар не найден при изменении**\n```\n❌ Не удалось применить изменения:\n\n- Не найден товар: \"{original_text}\"\n\nВозможно, вы имели в виду:\n- {похожий товар 1}\n- {похожий товар 2}\n- {похожий товар 3}\n\nТекущий заказ (без изменений):\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\n🚫 Изменения не применены.\nНажмите «Изменить» и уточните название, или свяжитесь с менеджером.\n```\n\n**Пример:**\n```\n❌ Не удалось применить изменения:\n\n- Не найден товар: \"какая-то упаковка\"\n\nВозможно, вы имели в виду:\n- Вилка Кристалл\n- Стакан «Кристалл»\n- Тарелка «Премиум»\n\nТекущий заказ (без изменений):\n- Сок Апельсин — 2 шт.\n- Вилка Кристалл — 10 пач.\n\n🚫 Изменения не применены.\nНажмите «Изменить» и уточните название, или свяжитесь с менеджером.\n```\n\n---\n\n### **Шаблон 4: Замена товара**\n```\n✅ Обновленный заказ:\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n**Пример:**\n```\n✅ Обновленный заказ:\n- Сок Апельсин — 2 шт.\n- Молоко 2% — 2 шт.\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n---\n\n### **Шаблон 5: Изменение количества**\n```\n✅ Обновленный заказ:\n- {product_name} — {count} {product_unit}\n- {product_name} — {count} {product_unit}\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n**Пример:**\n```\n✅ Обновленный заказ:\n- Сок Апельсин — 5 шт.\n- Вилка Кристалл — 10 пач.\n\nВсё верно? Нажмите «Подтвердить»\n```\n\n---\n\n## 📋 **Правила для `order_status`**\n```\n\"ready\" = изменения применены успешно, все товары с confidence >= 95\n\"needs_confirmation\" = изменения применены, но есть товары с confidence 60-94\n\"blocked\" = изменения НЕ применены, товар не найден (confidence < 60)\n```\n\n---\n\n## 🎯 **Важные правила**\n\n1. **ВСЕГДА возвращай ПОЛНЫЙ список товаров** (не только изменённые, а весь заказ)\n\n2. **Показывай, что именно изменилось:**\n   - Добавлено\n   - Удалено\n   - Заменено\n   - Изменено количество\n\n3. **Используй поле `action`** для каждого товара:\n   - `\"added\"` — товар добавлен\n   - `\"removed\"` — товар удалён (НЕ включай в `items`, только упоминай в `summary_text`)\n   - `\"updated\"` — изменено количество\n   - `\"unchanged\"` — товар остался без изменений\n\n4. **Проверяй исключения** при добавлении/удалении товаров — поставщик может измениться\n\n5. **Показывай максимум 3 альтернативы** в поле `alternatives`\n\n6. **Единицы измерения ТОЛЬКО из базы данных:**\n   - ВСЕГДА используй `unit` из БД для товара\n   - ИГНОРИРУЙ единицы из речи пользователя\n   - В `summary_text` правильно склоняй единицу относительно количества\n   - Пример: БД unit=\"пач.\" → \"1 пачка\", \"2 пачки\", \"5 пачек\"\n\n7. **Заполняй `original_text`** только для новых/изменённых товаров, если есть расхождение с `product_name`\n\n8. **Заполняй `quantity_assumed = true`** если количество не было указано и установлено автоматически\n\n9. **Если товар не найден** (confidence < 60):\n   - НЕ применяй изменения к заказу\n   - Оставь заказ как был\n   - Верни `order_status = \"blocked\"`\n   - Покажи текущий заказ без изменений\n\n10. **`summary_text` должен быть понятным обычному пользователю** — избегай технических терминов\n\n---\n\n## 📦 **Товары из базы данных**\n```\n{{ $('HTTP Request5').item.json.Поставщики.toJsonString() }}\n```\n\n## 🔧 **Исключения (правила привязки поставщиков)**\n```\n{{ $('HTTP Request5').item.json.Исключения.toJsonString() }}\n\n## ✅ Проверь себя перед ответом:\n- [ ] ПОЛНЫЙ список товаров (не только изменённые)?\n- [ ] Указано, что именно изменилось (добавлено/удалено/заменено)?\n- [ ] Для новых товаров заполнены original_text и alternatives (если нужно)?\n- [ ] summary_text содержит единицы измерения из БД в правильной словоформе?\n- [ ] summary_text НЕ начинается с заголовка \"Ваш заказ\"?\n- [ ] Проверены исключения для изменённых товаров?\n- [ ] Для каждого товара указан правильный action?\n- [ ] order_status корректно отражает статус изменений?\n- [ ] Если товар не найден — заказ остался без изменений и order_status = \"blocked\"?\n- [ ] Единицы измерения взяты ТОЛЬКО из БД, игнорируя речь пользователя?"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        656,
+        -224
+      ],
+      "id": "daf53984-e183-4ff8-b10b-5bbf8720a42b",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "mzN8RwZWwQ3uPa0E",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit?gid=935202143#gid=935202143",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 935202143,
+          "mode": "list",
+          "cachedResultName": "Orders",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=935202143"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $json.result.chat.id }}",
+            "Message": "={{ $('Telegram Trigger').item.json.callback_query.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1408,
+        0
+      ],
+      "id": "72b976d3-23a9-4e1d-bba8-e90d2e49e06f",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "user_id",
+              "lookupValue": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1232,
+        0
+      ],
+      "id": "f26c7773-40d0-4eb3-8ad5-18fa46d6deef",
+      "name": "Get row(s) in sheet4",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{$('Telegram Trigger').first().json[\"message\"] && $('Telegram Trigger').first().json[\"message\"][\"voice\"] ? 0 : ($('Telegram Trigger').first().json[\"message\"] && $('Telegram Trigger').first().json[\"message\"][\"text\"] === \"/start\" ? 2 : 1)}}"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2000,
+        320
+      ],
+      "id": "a8a64e4d-e65c-4883-b522-1c1fb5f63e47",
+      "name": "Switch5"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$('Telegram Trigger').first().json[\"callback_query\"] \n    ? ($('Telegram Trigger').first().json[\"callback_query\"][\"data\"].startsWith(\"point_\") ? 3\n       : $('Telegram Trigger').first().json[\"callback_query\"][\"data\"] === \"confirm\" ? 0 \n       : $('Telegram Trigger').first().json[\"callback_query\"][\"data\"] === \"edit\" ? 1 \n       : 2) \n    : 2}}\n"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1616,
+        416
+      ],
+      "id": "c8cd7368-117f-43c2-9232-d1736f779f4e",
+      "name": "Switch6"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json[\"point\"] ? 1 : 0 }}\n"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -944,
+        -416
+      ],
+      "id": "b654b65a-e93f-4360-9324-d29170e940d6",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $('Get row(s)2').item.json.status === \"Изменения\" ? 1 : 0 }}\n"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        368,
+        -320
+      ],
+      "id": "82a5f90e-9f1a-4e5a-ad45-1f2249895b1b",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "url": "http://77.73.232.184:12000/points",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1328,
+        1200
+      ],
+      "id": "9cf37af2-e8e1-4e69-ba3c-ecae31150db7",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Исходный массив заказанных товаров\nconst items = JSON.parse($('Получить данные для изменения').first().json.json);\n\n// Получаем данные для сервера\nconst point_id = $('Получить данные для изменения').first().json.point_id || 0;\nconst point = $('Получить данные для изменения').first().json.point || \"\";\nconst tg_name = $('Telegram Trigger').first().json.callback_query.from.first_name;\nconst tg_username = $('Telegram Trigger').first().json.callback_query.from.username;\nconst text = $('Получить данные для изменения').first().json.message || \"\";\n\n// Очищаем items от лишних полей, оставляем только то, что нужно серверу\nconst cleanedItems = items.map(item => ({\n  product_id: item.product_id,\n  product_type: item.product_type || \"\",\n  product_subtype: item.product_subtype || \"\",\n  product_name: item.product_name || \"\",\n  product_count: item.product_count || 0,\n  product_unit: item.product_unit || \"\",\n  suppliers_id: item.suppliers_id,\n  suppliers_name: item.suppliers_name || \"\"\n}));\n\n// Возвращаем только данные для сервера\nreturn [\n  {\n    json: {\n      point_id,\n      tg_name,\n      tg_username,\n      point,\n      items: cleanedItems\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        272
+      ],
+      "id": "c7ced09f-2188-49ef-93a4-435b9945b710",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://77.73.232.184:12000/orders",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        272
+      ],
+      "id": "401ce266-ef0b-4124-8b62-5cd3daa1aa5b",
+      "name": "HTTP Request4",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем данные из предыдущего шага\nconst responseData = $input.first().json.message.content;\nconst data = responseData.items;\n\n// Проверяем, что структура корректная\nif (!data || !Array.isArray(data)) {\n  return [{ json: { error: \"Некорректная структура данных: отсутствует массив items\" } }];\n}\n\n// Получаем название точки (если передано)\nconst point = $('Get row(s)2').first().json.point || 'неизвестна';\n\n// Максимальное количество товаров в одном предупреждении\nconst MAX_PRODUCTS_IN_WARNING = 3;\n\n// Сопоставление типа товара => дни недели (0 = Воскресенье, 1 = Понедельник, ..., 6 = Суббота)\nconst typeDays = {\n  \"Упаковка\": [5],                          // пт\n  \"Лимонады\": [4],                          // чт\n  \"Продукты (часть товаров)\": [1, 3, 5],    // пн, ср, пт\n  \"Пищеснаб\": [1, 4],                       // пн, чт\n  \"Молочка\": [1, 4],                        // пн, чт\n  \"Сосиски\": [2, 4],                        // вт, чт\n  \"Вода\": [1, 4],                           // пн, чт\n  \"Мука/Сахар\": [1, 2, 3, 4],               // пн, вт, ср, чт\n  \"Ирексол софт сдоба\": [1, 4],             // пн, чт\n};\n\n// Функция для проверки, является ли сегодня крайней пятницей месяца\nfunction isLastFridayOfMonth() {\n  const today = new Date();\n  const currentMonth = today.getMonth();\n  const currentYear = today.getFullYear();\n  \n  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);\n  \n  let lastFriday = new Date(lastDayOfMonth);\n  while (lastFriday.getDay() !== 5) {\n    lastFriday.setDate(lastFriday.getDate() - 1);\n  }\n  \n  return today.getDate() === lastFriday.getDate() && \n         today.getMonth() === lastFriday.getMonth() && \n         today.getFullYear() === lastFriday.getFullYear();\n}\n\n// Получаем текущий день недели\nconst today = new Date().getDay();\n\n// Группируем товары по типу\nconst typeGroups = {};\nfor (const item of data) {\n  const type = item.product_type || \"Прочее\";\n  if (!typeGroups[type]) {\n    typeGroups[type] = [];\n  }\n  typeGroups[type].push(item.product_name || \"Без названия\");\n}\n\n// ============================================\n// ФОРМИРУЕМ ТЕКСТ ЗАКАЗА\n// ============================================\n\nlet output = `🛒 Ваш заказ (Точка ${point}):\\n\\n`;\n\n// Если AI сгенерировал summary_text — используем его как есть\nif (responseData.summary_text) {\n  output += responseData.summary_text;\n} else {\n  // Fallback: если AI не вернул summary_text, формируем сами\n  for (const item of data) {\n    const name = item.product_name || \"Без названия\";\n    const count = item.product_count || 0;\n    output += `- ${name} — ${count}\\n`;\n  }\n  \n  // Добавляем статус заказа\n  if (responseData.order_status === \"needs_confirmation\") {\n    output += \"\\n⚠️ Проверьте заказ перед отправкой\\n\";\n  } else if (responseData.order_status === \"blocked\") {\n    output += \"\\n🚫 Заказ не может быть отправлен без уточнений\\n\";\n  } else {\n    output += \"\\nВсё верно? Нажмите «Подтвердить»\";\n  }\n}\n\n// ============================================\n// ДОБАВЛЯЕМ ПРЕДУПРЕЖДЕНИЯ О ДНЯХ ЗАКАЗА\n// ============================================\n\nlet dayWarnings = \"\";\nconst dayNames = [\"Воскресенье\", \"Понедельник\", \"Вторник\", \"Среда\", \"Четверг\", \"Пятница\", \"Суббота\"];\n\nfor (const [type, products] of Object.entries(typeGroups)) {\n  const normalizedType = type.toLowerCase().trim();\n  let shouldWarn = false;\n  let message = \"\";\n  \n  // Особые случаи для \"белизна\" и \"Вафел.полотно\"\n  if (normalizedType.includes(\"белизна\") || normalizedType.includes(\"вафел\")) {\n    if (!isLastFridayOfMonth()) {\n      shouldWarn = true;\n      let productsList;\n      if (products.length > MAX_PRODUCTS_IN_WARNING) {\n        const displayProducts = products.slice(0, MAX_PRODUCTS_IN_WARNING).join(\", \");\n        const remaining = products.length - MAX_PRODUCTS_IN_WARNING;\n        productsList = `${displayProducts} и ещё ${remaining}`;\n      } else {\n        productsList = products.join(\", \");\n      }\n      message = `⚠️ \"${productsList}\" отправляется только в последнюю пятницу месяца`;\n    }\n  } \n  // Обычные типы\n  else {\n    const allowedDays = typeDays[type];\n    if (allowedDays && !allowedDays.includes(today)) {\n      shouldWarn = true;\n      const allowedDayNames = allowedDays.map(d => dayNames[d]).join(\", \");\n      let productsList;\n      if (products.length > MAX_PRODUCTS_IN_WARNING) {\n        const displayProducts = products.slice(0, MAX_PRODUCTS_IN_WARNING).join(\", \");\n        const remaining = products.length - MAX_PRODUCTS_IN_WARNING;\n        productsList = `${displayProducts} и ещё ${remaining}`;\n      } else {\n        productsList = products.join(\", \");\n      }\n      message = `⚠️ \"${productsList}\" желательно заказывать в: ${allowedDayNames}`;\n    }\n  }\n  \n  if (shouldWarn) {\n    dayWarnings += `${message}\\n`;\n  }\n}\n\n// Добавляем предупреждения о днях заказа (если есть)\nif (dayWarnings) {\n  output += `\\n\\n${dayWarnings.trim()}`;\n}\n\n// Возвращаем результат с текстом и данными\nreturn [{ \n  json: { \n    text: output.trim(), \n    data,\n    order_status: responseData.order_status || \"ready\"\n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        -320
+      ],
+      "id": "9b88ab05-6d49-439b-989b-46e8ee8a668b",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+            "status": "Выбрал точку",
+            "point": "={{ $json.point }}"
+          },
+          "matchingColumns": [
+            "user_id"
+          ],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1056,
+        0
+      ],
+      "id": "5542afcd-4143-46f2-af12-0e7c12009b59",
+      "name": "Update row in sheet2",
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit?gid=700338570#gid=700338570",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 700338570,
+          "mode": "list",
+          "cachedResultName": "Users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRqtFlnFvncg9iIuBwsaefjcpKpAvKVva3Cw_THIB7Y/edit#gid=700338570"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "json": "={{ $('Code1').item.json.data.toJsonString() }}",
+            "user_id": "={{ $('Get row(s)2').item.json.user_id }}",
+            "point": "={{ $('Get row(s)2').item.json.point }}",
+            "status": "={{ $('Get row(s)2').item.json.status }}",
+            "id": "={{ $('Get row(s)2').item.json.id }}"
+          },
+          "matchingColumns": [
+            "user_id"
+          ],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "json",
+              "displayName": "json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1488,
+        -560
+      ],
+      "id": "c682327c-fee2-40fc-91ea-dfe5d94cc487",
+      "name": "Update row in sheet3",
+      "credentials": {
+        "googleApi": {
+          "id": "O4tyXN5dH31VB3Wd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.from.id }}",
+        "text": "Пожалуйста, отправьте голосовое сообщение, указав список необходимых продуктов.",
+        "replyMarkup": "forceReply",
+        "forceReply": {},
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1376,
+        912
+      ],
+      "id": "049ca581-f268-405e-a9b0-a753736de35a",
+      "name": "Send a text message4",
+      "webhookId": "b4ce9514-7461-4149-a7af-8834eec5a677",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://77.73.232.184:12000/suppliers/export",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -32,
+        -320
+      ],
+      "id": "8709fc49-4270-4377-b2ac-c8c261fea411",
+      "name": "HTTP Request5"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}",
+        "text": "=При отправке данных произошла ошибка.\nПопробуйте завести новый заказ. При повторном появлении ошибке обратитесь напрямую к менеджеру",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -192,
+        432
+      ],
+      "id": "e34b8953-61be-4246-a7fe-2b7ee9ccd828",
+      "name": "Send a text message5",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=944568244",
+        "text": "=При отправке данных от точки \"{{ $('Get row(s) in sheet4').item.json.point }}\" произошла ошибка.\n\nДанные заказа:\n{{ $('HTTP Request4').item.json.items.toJsonString() }}\n\nДанные ошибки:\nСтатус: {{ $('HTTP Request4').item.json.error.status }}\nКод: {{ $('HTTP Request4').item.json.error.code }}\nИмя: {{ $('HTTP Request4').item.json.error.name }}\nСообщение:\n{{ $('HTTP Request4').item.json.error.message }}\nСтек:\n{{ $('HTTP Request4').item.json.error.stack }}\n\nВремя отправки: {{ $now.toFormat('dd.MM.yyyy HH:mm') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        432
+      ],
+      "id": "8102cd11-a8da-44c3-bdfc-e07a65090622",
+      "name": "Send a text message7",
+      "webhookId": "7a88c5e0-0e0f-42b6-9370-6097ab4dfe60",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем входные данные\nconst inputData = $('HTTP Request5').all();\n\n// Множество для хранения уникальных единиц измерения\nconst uniqueUnits = new Set();\n\n// Обрабатываем каждый элемент входных данных\ninputData.forEach(item => {\n  const data = item.json;\n  \n  // Проверяем, есть ли объект \"Поставщики\"\n  if (data.Поставщики) {\n    // Перебираем всех поставщиков\n    Object.keys(data.Поставщики).forEach(supplierName => {\n      const supplier = data.Поставщики[supplierName];\n      \n      // Проверяем, есть ли массив products\n      if (supplier.products && Array.isArray(supplier.products)) {\n        // Перебираем продукты и добавляем unit в Set\n        supplier.products.forEach(product => {\n          if (product.unit) {\n            uniqueUnits.add(product.unit);\n          }\n        });\n      }\n    });\n  }\n});\n\n// Возвращаем массив уникальных единиц измерения\nreturn [{ json: { units: Array.from(uniqueUnits) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -320
+      ],
+      "id": "44916a30-070b-4fff-8240-810a7b8d28df",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем данные из входящего JSON\nconst orders = $input.all();\n\n// Обрабатываем каждый заказ\nconst results = orders.map(order => {\n  const data = order.json;\n  \n  // Название точки\n  const pointName = data.point?.name || data.tg_name || 'Неизвестная точка';\n  \n  // Формируем список товаров\n  const itemsList = data.items.map(item => {\n    // Определяем правильную форму единицы измерения\n    let unitText = item.unit;\n    \n    // Склонение единиц измерения в зависимости от количества\n    if (item.unit === 'бут.') {\n      if (item.count === 1) {\n        unitText = 'бутылка';\n      } else if (item.count >= 2 && item.count <= 4) {\n        unitText = 'бутылки';\n      } else {\n        unitText = 'бутылок';\n      }\n    }\n    \n    return `- ${item.name} — ${item.count} ${unitText}`;\n  }).join('\\n');\n  \n  // Формируем итоговое сообщение\n  const message = `Точка ${pointName} отправила заказ:\\n\\n${itemsList}`;\n  \n  return {\n    json: {\n      message: message,\n      order_id: data.id,\n      point_id: data.point_id,\n      point_name: pointName\n    }\n  };\n});\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        80
+      ],
+      "id": "46afd9a1-0b54-41c8-b7a8-f3090cb8dbff",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('HTTP Request4').item.json.point.manager_telegram_id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        80
+      ],
+      "id": "36b08aa2-f6b3-4eff-a560-139f042899c2",
+      "name": "Send a text message9",
+      "webhookId": "67ce46e0-23f0-4513-95ee-36b0d7a2c213",
+      "credentials": {
+        "telegramApi": {
+          "id": "wu7zBuTexsZhK9BB",
+          "name": "Telegram / 25 точек / Сбор заявок"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "56762845-3997-406a-bc24-3a0ef5926e48",
+              "leftValue": "={{ $json.point.manager_telegram_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -384,
+        96
+      ],
+      "id": "963f0d62-ad88-4bdc-91ed-fa0b2ae7527d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $json.callback_query.message.chat.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        688
+      ],
+      "id": "88496dba-2eef-4e05-b1d1-944e30877823",
+      "name": "Get row(s)1"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "isEmpty"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Telegram Trigger').first().json.message.from.id }}",
+            "point": "={{ $json.name }}",
+            "status": "Выбрал точку",
+            "point_id": "={{ $json.point_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "json",
+              "displayName": "json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "point_id",
+              "displayName": "point_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -2272,
+        336
+      ],
+      "id": "db6b5f1e-720b-4ba3-893a-9e567c55b0d7",
+      "name": "Upsert row(s)"
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $json.callback_query.from.id }}{{ $json.message.from.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -2880,
+        336
+      ],
+      "id": "88ebca1e-410d-472c-917a-a8d4fb4b7f24",
+      "name": "If row does not exist",
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "executeOnce": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "http://77.73.232.184:12000/points",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2688,
+        336
+      ],
+      "id": "b7aecd76-2e6e-4dc2-8b0a-b64a342022b6",
+      "name": "HTTP Request6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tg = $('Telegram Trigger').first().json;\n\n// Извлекаем Telegram ID из любого возможного источника\nconst telegramId =\n  (tg.callback_query?.from?.id?.toString()) ||\n  (tg.message?.from?.id?.toString()) ||\n  null;\n\n// Получаем все входные элементы (ваш массив организаций)\nconst organizations = $input.all().map(item => item.json);\n\n// Ищем организацию, у которой idTg совпадает с telegramId\nconst found = organizations.find(org => org.idTg === telegramId);\n\n// Формируем результат\nreturn [{\n  json: {\n    name: found ? found.name : null,\n    point_id: found ? found.id : null,  \n    found: !!found,\n    telegramId: telegramId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        336
+      ],
+      "id": "32459df5-5a90-4763-ae9b-69f8066ccedb",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "operation": "rowExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $json.callback_query.from.id }}{{ $json.message.from.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -2880,
+        176
+      ],
+      "id": "a29f630c-9b8b-49f2-811d-922c020c8ae1",
+      "name": "If row exists",
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "executeOnce": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $('Telegram Trigger').first().json.message.chat.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        -416
+      ],
+      "id": "c2ba7fd8-49c3-4c92-83fb-e93b2ec1e50a",
+      "name": "Get row(s)2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $('Get row(s)2').item.json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "json": "={{ $('Code1').item.json.data.toJsonString() }}",
+            "message": "={{ $json.result.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "json",
+              "displayName": "json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "point_id",
+              "displayName": "point_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "dryRun": false
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -320
+      ],
+      "id": "9f8d3923-361c-4d8c-b823-95ecf0c544c9",
+      "name": "Update row(s)1",
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "executeOnce": false,
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "Изменения",
+            "message": "={{ $('Telegram Trigger').item.json.callback_query.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "json",
+              "displayName": "json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        688
+      ],
+      "id": "b15f6ddb-066a-4ba3-963a-55402902b7e1",
+      "name": "Upsert row(s)1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $('Telegram Trigger').first().json.callback_query.from.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        272
+      ],
+      "id": "231cb807-e79c-4f69-ba5c-a6a4a3f8378a",
+      "name": "Получить данные для изменения"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $('Telegram Trigger').item.json.callback_query.from.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "Подтвердить"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "point",
+              "displayName": "point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "json",
+              "displayName": "json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        272
+      ],
+      "id": "bd45dc4c-4755-41b4-8193-7495c165ff59",
+      "name": "Изменить статус на подтвердить"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9sXzSmPM3wcWBbLg",
+          "mode": "list",
+          "cachedResultName": "25 Точек / Users",
+          "cachedResultUrl": "/projects/tdDFBeIZZFeKaBPT/datatables/9sXzSmPM3wcWBbLg"
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        1200
+      ],
+      "id": "5c838f71-3367-4ece-9dba-4539fd9f7314",
+      "name": "Get row(s)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit a text message": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message2": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit a text message1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Edit a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet4": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If row does not exist",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If row exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch5": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch6",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch6": {
+      "main": [
+        [
+          {
+            "node": "Получить данные для изменения",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a text message3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message1": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Edit a text message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message5": {
+      "main": [
+        [
+          {
+            "node": "Send a text message7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Send a text message9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If row does not exist": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert row(s)": {
+      "main": [
+        [
+          {
+            "node": "Switch5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request6": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If row exists": {
+      "main": [
+        [
+          {
+            "node": "Switch5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)2": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert row(s)1": {
+      "main": [
+        [
+          {
+            "node": "Edit a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Получить данные для изменения": {
+      "main": [
+        [
+          {
+            "node": "Изменить статус на подтвердить",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Изменить статус на подтвердить": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a338f53f-0e9f-4fec-8057-6126b979940f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "373baed55bee30d41578d20bc6ddf4016a5ad31fbcd9678e5e4e27735e939173"
+  },
+  "id": "Iw3yXMJQ7GSgIR5Z",
+  "tags": []
+}
