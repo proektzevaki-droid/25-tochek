@@ -14,7 +14,7 @@ import models, schemas
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment, Border, Side, Font
 from openpyxl.utils import get_column_letter
-from datetime import datetime
+from datetime import datetime, timedelta
 from models import moscow_now
 import os
 from fill_template import fill_template, fill_template_horizontal
@@ -65,6 +65,9 @@ SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "")
 
 # Создаем директорию для временных файлов, если её нет
 os.makedirs(EXPORT_TEMP_DIR, exist_ok=True)
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 def get_db():
     db = SessionLocal()
@@ -1922,6 +1925,71 @@ def get_order(request: Request, order_id: int, db: Session = Depends(get_db)):
     }
     return order_dict
 
+def is_duplicate_order(db: Session, order_data: schemas.OrderRequest) -> bool:
+    """
+    Проверка на дубликат заказа.
+    
+    Заказ считается дублем если:
+    1. От той же точки (point_id)
+    2. От того же пользователя (tg_username)
+    3. Создан за последние 60 секунд
+    4. Содержит идентичные товары (product_id + count)
+    
+    Args:
+        db: Сессия базы данных
+        order_data: Данные нового заказа для проверки
+    
+    Returns:
+        True если заказ является дублем, False если уникальный
+    """
+    # Определяем временной порог (60 секунд назад)
+    time_threshold = moscow_now() - timedelta(seconds=60)
+    
+    # Ищем недавние заказы от этой точки и пользователя
+    recent_orders = db.query(models.Order).options(
+        joinedload(models.Order.items)
+    ).filter(
+        models.Order.point_id == order_data.point_id,
+        models.Order.tg_username == order_data.tg_username,
+        models.Order.created_at > time_threshold
+    ).all()
+    
+    if not recent_orders:
+        return False
+    
+    # Формируем сигнатуру текущего заказа для сравнения
+    # Сигнатура: множество строк вида "product_id:count"
+    current_signature = set()
+    for item in order_data.items:
+        # Нормализуем product_id (может быть строкой или числом)
+        product_id = item.product_id
+        if isinstance(product_id, str):
+            try:
+                product_id = int(product_id) if product_id.strip() else None
+            except (ValueError, TypeError):
+                product_id = None
+        
+        # Создаем уникальный ключ: product_id + count
+        key = f"{product_id}:{item.product_count}"
+        current_signature.add(key)
+    
+    # Сравниваем с недавними заказами
+    for order in recent_orders:
+        order_signature = set()
+        for item in order.items:
+            key = f"{item.product_id}:{item.count}"
+            order_signature.add(key)
+        
+        # Если сигнатуры совпадают - это дубль
+        if current_signature == order_signature:
+            logger.info(
+                f"[ДУБЛЬ ОБНАРУЖЕН] Заказ от point_id={order_data.point_id}, "
+                f"user={order_data.tg_username} является дублем заказа order_id={order.id}"
+            )
+            return True
+    
+    return False
+
 @app.post("/orders")
 @limiter.limit("5/second")
 def create_order(
@@ -1980,6 +2048,15 @@ def create_order(
         created_orders = []
         
         for order_data in orders:
+            # 🛡️ Проверка на дубликат заказа
+            if is_duplicate_order(db, order_data):
+                logger.warning(
+                    f"[ДУБЛЬ ПРОПУЩЕН] Пропущен дубликат заказа от "
+                    f"point_id={order_data.point_id}, user={order_data.tg_username}"
+                )
+                # Возвращаем успешный ответ, но заказ НЕ создаем
+                continue
+            
             # Создаем заказ
             db_order = models.Order(
                 point_id=order_data.point_id,
