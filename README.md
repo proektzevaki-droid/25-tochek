@@ -21,8 +21,15 @@ Avtomatizirovannaya sistema dlya upravleniya zakazami ot 25 tochek prodazh.
 
 ### Status
 
-✅ Rabotaet v production
-📅 Data snapshota: 2026-01-23
+✅ Работает в production
+📅 Дата snapshot: 2026-01-23
+🔧 Последнее обновление: 2026-01-23
+
+### Текущие задачи
+
+- [ ] Добавить защиту от дублей заказов
+- [ ] Оптимизировать генерацию Excel
+- [ ] Добавить логирование ошибок
 
 ---
 
