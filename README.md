@@ -1,50 +1,66 @@
-# 25 Tochek - Sistema Upravleniya Zakazami
+# 25 точек — Система управления заказами
 
-## Opisanie Proekta
+## Описание
 
-Avtomatizirovannaya sistema dlya upravleniya zakazami ot 25 tochek prodazh.
+Автоматизированная система приёма и обработки заказов от 25 торговых точек. Заказы поступают через Telegram-бот (голос/текст), распознаются AI и попадают в дашборд для обработки оператором.
 
-### Osnovnye Komponenty
+### Компоненты
 
-- **FastAPI Dashboard** - veb-interfeys dlya upravleniya
-- **Telegram Bot** - priem zakazov ot operatorov
-- **N8N Workflows** - avtomaticheskaya obrabotka
-- **SQLite Database** - hranenie dannyh
+- **FastAPI Dashboard** — веб-интерфейс для управления заказами, точками, поставщиками
+- **Telegram Bot** — приём заказов от операторов точек
+- **n8n Workflows** — оркестрация (Whisper + GPT-4 + Google Sheets)
+- **SQLite Database** — хранение данных (9 таблиц)
 
-### Tehnologii
+### Технологии
 
-- Python 3.x + FastAPI
-- SQLAlchemy (ORM)
-- Telegram Bot API
-- OpenAI (raspoznavanie golosovyh soobscheniy)
-- N8N (avtomatizaciya)
+- Python 3.x + FastAPI + Uvicorn
+- SQLAlchemy ORM + SQLite + Alembic
+- OpenAI Whisper (голос → текст) + GPT-4 (текст → JSON)
+- n8n (автоматизация workflows)
+- Telegram Bot API + SMTP (mail.ru)
+- OpenPyXL (генерация Excel)
 
-### Status
+### Бизнес-процесс
 
-✅ Работает в production
-📅 Дата snapshot: 2026-01-23
-🔧 Последнее обновление: 2026-01-23
+```
+Точка (Telegram) → n8n (AI) → Дашборд (оператор) → Excel → Поставщики
+```
 
-### Текущие задачи
+## Статус
 
-- [ ] Добавить защиту от дублей заказов
-- [ ] Оптимизировать генерацию Excel
-- [ ] Добавить логирование ошибок
+- В продакшене с января 2026
+- Сервер: 77.73.232.184:12000
+- Дашборд: http://77.73.232.184:12000/dashboard
 
----
+## Структура
 
-## Bekap i Vosstanovlenie
+```
+├── main.py                    # FastAPI приложение (127 KB)
+├── models.py                  # SQLAlchemy модели (9 таблиц)
+├── database.py                # Подключение к SQLite
+├── schemas.py                 # Pydantic схемы
+├── fill_template.py           # Заполнение Excel шаблонов
+├── generate_template.py       # Генерация Excel шаблонов
+├── templates/dashboard.html   # Frontend (Jinja2)
+├── static/css/, static/js/    # Стили и скрипты
+├── alembic/                   # Миграции БД
+├── n8n_workflow_*.json        # n8n workflows
+├── CLAUDE.md                  # Правила для Claude Code
+├── КАРТОЧКА_ПРОЕКТА.txt       # Карточка проекта
+└── документация/              # Полная техническая документация
+```
 
-### Tar Arhiv
+## Бэкапы
+
 ```bash
-/home/devartemiy/25tochek/backups/2026-01-23_pered_uborkoy_dubley.tar.gz
+# Создание (на сервере)
+cd /home/devartemiy/25tochek/Dashborad
+tar -czf "../backups/$(date +%Y-%m-%d)_описание.tar.gz" \
+  main.py models.py database.py schemas.py app.db .env \
+  requirements.txt fill_template.py generate_template.py \
+  static/ templates/ alembic/ alembic.ini
 ```
 
-### Git Repository
-```
-https://github.com/proektzevaki-droid/25-tochek
-```
+## GitHub
 
----
-
-*Proekt razrabotan dlya avtomatizacii zakazov produktov ot 25 tochek prodazh k postavschikam.*
+Репозиторий: https://github.com/proektzevaki-droid/25-tochek

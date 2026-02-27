@@ -39,3 +39,6 @@ Thumbs.db
 
 # Backups
 backup_*.tar.gz
+
+# Claude Code (локальные настройки, не для Git)
+.claude/
