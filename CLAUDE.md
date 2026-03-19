@@ -79,10 +79,12 @@ GET/POST/PATCH/DELETE  /points, /products, /suppliers
 
 ## n8n Workflows
 
-| Workflow | Файл | Назначение |
-|----------|------|-----------|
-| Приём заказов | n8n_workflow_zakazy_25_tochek.json | Telegram → Whisper → GPT-4 → Google Sheets → POST /orders |
-| Отправка поставщикам | n8n_workflow_otpravka_zayavok.json | Webhook → Telegram бот → Callback |
+| Workflow | ID | Назначение |
+|----------|-----|-----------|
+| 25 точек / Приём заказов | `Iw3yXMJQ7GSgIR5Z` | Telegram → Whisper → GPT-4.1 → POST /orders (53 ноды) |
+| 25 точек / Отправка заявок поставщикам | `kuWOGfaSkuYQ2uEj` | Webhook → Telegram/Email (14 нод) |
+
+DataTable: "25 Точек / Users" — маппинг Telegram user_id → point_id (29 записей)
 
 ## Сервис (systemd)
 
@@ -123,10 +125,36 @@ sudo systemctl restart fastapi-dashboard
 
 1. **Не ломать рабочую систему** — она в продакшене, люди работают
 2. **Бэкап перед изменениями** — tar + git commit
-3. **Тестовая ветка** — feature/* для разработки, main для стабильной версии
-4. **Не создавать тестовые записи** в боевой БД без явного разрешения
-5. **Коммит = milestone** — только после подтверждения пользователем
-6. **Правило 2 попытки** — после 2 неудач СТОП, предложить варианты
+3. **Не создавать тестовые записи** в боевой БД без явного разрешения
+4. **Правило 2 попытки** — после 2 неудач СТОП, предложить варианты
+
+## Git и деплой — обязательный процесс
+
+### Коммиты
+- **Коммит ТОЛЬКО с разрешения Андрея** — спросить "Коммитим?" перед git commit
+- Коммит = подтверждённый milestone (изменения задеплоены, проверены, пользователь подтвердил)
+- Сообщение на русском, формат: `fix: описание` / `feat: описание` / `refactor: описание`
+- НЕ коммитить незадеплоенные изменения
+
+### Деплой — чеклист
+1. Проверить синтаксис: `python3 -c "import py_compile; py_compile.compile('main.py', doraise=True)"`
+2. scp на сервер
+3. `systemctl restart fastapi-dashboard`
+4. Проверить: `curl -s -o /dev/null -w '%{http_code}' http://77.73.232.184:12000/dashboard` → 200
+5. Проверить логи: `journalctl -u fastapi-dashboard -n 10 | grep -i error`
+6. Если 500/ошибка — **немедленный откат** из бэкапа
+
+### Откат
+```bash
+# Восстановление из бэкапа
+cp /home/devartemiy/25tochek/Dashborad/main.py.bak.ДАТА /home/devartemiy/25tochek/Dashborad/main.py
+sudo systemctl restart fastapi-dashboard
+```
+
+### n8n workflow
+- Изменения ТОЛЬКО через n8n REST API (не PostgreSQL напрямую)
+- API-ключ запрашивать у Андрея каждый раз
+- Паттерн: JS-скрипт → scp → `docker exec n8n-n8n-1 node script.js`
 
 ## Защита (уже реализовано)
 
@@ -138,9 +166,10 @@ sudo systemctl restart fastapi-dashboard
 
 ## Известные проблемы / технический долг
 
-- [ ] README на транслите — нужно обновить на русский
+- [ ] 11 export endpoints — copy-paste, заменить на 1 параметризованный
+- [ ] fill_template.py:49 — падает при item.count=None (баг /export/pack)
+- [ ] Временные Excel файлы никогда не удаляются (exports/)
 - [ ] dashboard.html — 3451 строка, монолит
-- [ ] Нет Error Handler workflow в n8n
 - [ ] Нет мониторинга (по опыту "Актов" — нужен Schedule каждые 5 мин)
 - [ ] is_closed в orders не используется
 - [ ] Credentials хардкод — нет разделения prod/dev

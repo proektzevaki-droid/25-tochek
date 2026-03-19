@@ -81,6 +81,10 @@ def get_db():
 def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+@app.get("/dashboard-v2")
+def dashboard_v2(request: Request):
+    return templates.TemplateResponse("dashboard-v2.html", {"request": request})
+
 # ---- Points ----
 @app.get("/points", response_model=list[schemas.Point])
 def read_points(db: Session = Depends(get_db)):
@@ -1261,7 +1265,8 @@ def download_test_excel(filename: str):
     """
     Скачивание тестового Excel файла по имени файла.
     """
-    filepath = os.path.join(EXPORT_TEMP_DIR, filename)
+    safe_filename = os.path.basename(filename)
+    filepath = os.path.join(EXPORT_TEMP_DIR, safe_filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Файл не найден")
     
@@ -2026,8 +2031,10 @@ def create_order(
                 order_request = schemas.OrderRequest(**body)
                 orders = [order_request]
             except ValidationError as e:
+                logger.error(f"[422] Ошибка валидации заказа (dict). Body: {body}. Ошибки: {e.errors()}")
                 raise HTTPException(status_code=422, detail=e.errors())
             except Exception as e:
+                logger.error(f"[422] Ошибка парсинга заказа (dict). Body: {body}. Ошибка: {str(e)}")
                 raise HTTPException(status_code=422, detail=f"Invalid order data: {str(e)}")
         elif isinstance(body, list):
             # Если это массив, валидируем каждый элемент
@@ -2037,6 +2044,7 @@ def create_order(
                     try:
                         orders.append(schemas.OrderRequest(**item))
                     except ValidationError as e:
+                        logger.error(f"[422] Ошибка валидации заказа (list item). Item: {item}. Ошибки: {e.errors()}")
                         raise HTTPException(status_code=422, detail=e.errors())
                 elif isinstance(item, schemas.OrderRequest):
                     orders.append(item)
@@ -2219,70 +2227,70 @@ def export_pack():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только упаковку
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "упаковка"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон перед заполнением
+        subtypes = {
+            "05 Посуда одноразовая": {
+                "unit": "шт.",
+                "items": [
+                    'Вилка "Кристалл"',
+                    'Ложка "Кристалл"',
+                    'Ложка чайная',
+                    'Нож "Кристалл"',
+                    'Палочка для размешивания',
+                    'Стакан 200 мл. прозрачный'
+                ]
+            },
+            "07 Хозтовары": {
+                "unit": "рул.",
+                "items": [
+                    "Шпагат ПП 2200 текс (баб по 4,5-5кг.)"
+                ]
+            },
+            "Заказные": {
+                "unit": "шт.",
+                "items": [
+                    "Пакет майка 'Добрые булки'",
+                    "Стикеры мал.",
+                    "Стикеры бол."
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="Упаковка")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только упаковку
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "упаковка"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон перед заполнением
-    subtypes = {
-        "05 Посуда одноразовая": {
-            "unit": "шт.",
-            "items": [
-                'Вилка "Кристалл"',
-                'Ложка "Кристалл"',
-                'Ложка чайная',
-                'Нож "Кристалл"',
-                'Палочка для размешивания',
-                'Стакан 200 мл. прозрачный'
-            ]
-        },
-        "07 Хозтовары": {
-            "unit": "рул.",
-            "items": [
-                "Шпагат ПП 2200 текс (баб по 4,5-5кг.)"
-            ]
-        },
-        "Заказные": {
-            "unit": "шт.",
-            "items": [
-                "Пакет майка 'Добрые булки'",
-                "Стикеры мал.",
-                "Стикеры бол."
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="Упаковка")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/limonad")
 def export_limonad():
@@ -2302,63 +2310,63 @@ def export_limonad():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только лимонад
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "лимонад"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон (только unsub)
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "Фрустайл лимон-лайм ж/б",
+                    "Фрустайл апельсин ж/б",
+                    "Эвервес ж/б",
+                    "Эвервес 0,5",
+                    "Эвервес б/сах 0,5",
+                    "Липтон зеленый",
+                    "Липтон лимон черный",
+                    "Вода газ",
+                    "любимый/ябл",
+                    "любимый/вишн",
+                    "любимый/клуб",
+                    "Вода газ 2л",
+                    "Вода б/газа 2л"
+                ]
+            }
+        }
+
+        generate_template_horizontal(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template_horizontal(orders, packaging_type="Лимонад")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только лимонад
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "лимонад"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон (только unsub)
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "Фрустайл лимон-лайм ж/б",
-                "Фрустайл апельсин ж/б",
-                "Эвервес ж/б",
-                "Эвервес 0,5",
-                "Эвервес б/сах 0,5",
-                "Липтон зеленый",
-                "Липтон лимон черный",
-                "Вода газ",
-                "любимый/ябл",
-                "любимый/вишн",
-                "любимый/клуб",
-                "Вода газ 2л",
-                "Вода б/газа 2л"
-            ]
-        }
-    }
-
-    generate_template_horizontal(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template_horizontal(orders, packaging_type="Лимонад")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/food")
 def export_food():
@@ -2378,61 +2386,61 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "часть продуктов"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "масло растительное",
+                    "соль",
+                    "яйцо",
+                    "чеснок",
+                    "сок яблоко",
+                    "сок персик/абрик",
+                    "сок мульти",
+                    "сок вишня",
+                    "сок апельсин",
+                    "чай черн",
+                    "чай зелен"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="часть продуктов")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "часть продуктов"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "масло растительное",
-                "соль",
-                "яйцо",
-                "чеснок",
-                "сок яблоко",
-                "сок персик/абрик",
-                "сок мульти",
-                "сок вишня",
-                "сок апельсин",
-                "чай черн",
-                "чай зелен"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="часть продуктов")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 # ---- NEW ----
 @app.get("/export/foodSupply")
@@ -2453,57 +2461,57 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "пищеснаб"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "конфитюр вишня",
+                    "конфитюр яблоко",
+                    "конфитюр малина",
+                    "конфитюр смородина",
+                    "изюм",
+                    "мак",
+                    "маргарин"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="пищеснаб")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "пищеснаб"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "конфитюр вишня",
-                "конфитюр яблоко",
-                "конфитюр малина",
-                "конфитюр смородина",
-                "изюм",
-                "мак",
-                "маргарин"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="пищеснаб")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/milk")
 def export_food():
@@ -2522,52 +2530,52 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "молочка"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "творог",
+                    "сметана"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="молочка")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "молочка"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "творог",
-                "сметана"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="молочка")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/sausages")
 def export_food():
@@ -2587,51 +2595,51 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "сосиски"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "сосиски"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="сосиски")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "сосиски"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "сосиски"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="сосиски")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/water")
 def export_food():
@@ -2651,51 +2659,51 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "вода"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "Вода 19л"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="вода")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "вода"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "Вода 19л"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="вода")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/flour")
 def export_food():
@@ -2715,52 +2723,52 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "мука/сахар"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "мука",
+                    "сахар"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="мука/сахар")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "мука/сахар"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "мука",
-                "сахар"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="мука/сахар")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/pone")
 def export_food():
@@ -2780,51 +2788,51 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "ирексол софт сдоба"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "ирексол софт сдоба"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="ирексол софт сдоба")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "ирексол софт сдоба"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "ирексол софт сдоба"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="ирексол софт сдоба")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/whiteness")
 def export_food():
@@ -2844,63 +2852,63 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "белизна"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "товар",
+                "items": [
+                    "Белизна",
+                    "Губка для посуд 10 шт/уп",
+                    "ЖМС универсал 5 л",
+                    "Крот 1  л",
+                    "МОП микрофибра шт",
+                    "Ника 5 л",
+                    "Освежитель воздуха",
+                    "Пемолюкс",
+                    "Ср-во для гриля ",
+                    "Ср-во для стекол",
+                    "туалетная бумага/рулоны",
+                    "антисептик",
+                    "жидкое мыло",
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="белизна")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "белизна"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "товар",
-            "items": [
-                "Белизна",
-                "Губка для посуд 10 шт/уп",
-                "ЖМС универсал 5 л",
-                "Крот 1  л",
-                "МОП микрофибра шт",
-                "Ника 5 л",
-                "Освежитель воздуха",
-                "Пемолюкс",
-                "Ср-во для гриля ",
-                "Ср-во для стекол",
-                "туалетная бумага/рулоны",
-                "антисептик",
-                "жидкое мыло",
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="белизна")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
-    return response
 
 @app.get("/export/waffleFabric")
 def export_food():
@@ -2920,60 +2928,61 @@ def export_food():
             .filter(models.Order.status == "confirmed", models.Order.sent_to_supplier == False)
             .all()
         )
+
+        # 2️⃣ — Фильтруем только часть продуктов
+        for order in orders:
+            order.items = [i for i in order.items if i.type and i.type.lower() == "вафел.полотно"]
+
+        if not orders:
+            return {"message": "Нет данных для заполнения шаблона"}
+
+        # 3️⃣ — Создаём шаблон
+        subtypes = {
+            "unsub": {
+                "unit": "шт.",
+                "items": [
+                    "Вафел.полотно",
+                    "Мешки д/мусора 120 л шт",
+                    "Мешки д/мусора 240 л шт",
+                    "Мешки д/мусора 60 л шт",
+                    "Пакет фас 18*27 уп",
+                    "Пакет фас 22*32 уп",
+                    "Пакет фас 25*40 уп",
+                    "Пергамент (40*25)",
+                    "Перчатки винил 100шт/уп",
+                    "Перчатки полиэт.100шт/уп",
+                    "Перчатки хозяйственные",
+                    "Салфетки 25*25 49 уп/коробка",
+                    "Фартук однораз упак",
+                    "Шапочка 100шт/уп"
+                ]
+            }
+        }
+
+        generate_template(subtypes)
+
+        # 4️⃣ — Заполняем шаблон
+        filled_path = fill_template(orders, packaging_type="Вафел.полотно")
+
+        order_item_ids = [order.id for order in orders]
+
+        # 5️⃣ — Создаём запись в истории (со статусом "отказана")
+        history_record = models.History(
+            file_path=filled_path,
+            created_at=moscow_now()
+        )
+        db.add(history_record)
+        db.commit()  # обязательно commit, чтобы id был присвоен
+
+        # 5️⃣ — Возвращаем файл
+        filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = FileResponse(
+            filled_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
+        response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории
+        return response
     finally:
         db.close()
-
-    # 2️⃣ — Фильтруем только часть продуктов
-    for order in orders:
-        order.items = [i for i in order.items if i.type.lower() == "Вафел.полотно"]
-
-    if not orders:
-        return {"message": "Нет данных для заполнения шаблона"}
-
-    # 3️⃣ — Создаём шаблон
-    subtypes = {
-        "unsub": {
-            "unit": "шт.",
-            "items": [
-                "Вафел.полотно",
-                "Мешки д/мусора 120 л шт",
-                "Мешки д/мусора 240 л шт",
-                "Мешки д/мусора 60 л шт",
-                "Пакет фас 18*27 уп",
-                "Пакет фас 22*32 уп",
-                "Пакет фас 25*40 уп",
-                "Пергамент (40*25)",
-                "Перчатки винил 100шт/уп",
-                "Перчатки полиэт.100шт/уп",
-                "Перчатки хозяйственные",
-                "Салфетки 25*25 49 уп/коробка",
-                "Фартук однораз упак",
-                "Шапочка 100шт/уп"
-            ]
-        }
-    }
-
-    generate_template(subtypes)
-
-    # 4️⃣ — Заполняем шаблон
-    filled_path = fill_template(orders, packaging_type="Вафел.полотно")
-
-    order_item_ids = [order.id for order in orders]
-
-    # 5️⃣ — Создаём запись в истории (со статусом "отказана")
-    history_record = models.History(
-        file_path=filled_path,
-        created_at=moscow_now()
-    )
-    db.add(history_record)
-    db.commit()  # обязательно commit, чтобы id был присвоен
-
-    # 5️⃣ — Возвращаем файл
-    filename = f"foodSupply_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = FileResponse(
-        filled_path,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response.headers["X-Order-Item-IDs"] = ",".join(map(str, order_item_ids))
-    response.headers["X-History-ID"] = str(history_record.id)  # <-- добавили id истории

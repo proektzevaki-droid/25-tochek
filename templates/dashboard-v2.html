@@ -1,0 +1,3832 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== ДИЗАЙН-СИСТЕМА (shadcn/ui стиль, 2026) ===== */
+    :root {
+      --background: hsl(210 40% 98%);
+      --foreground: hsl(222 84% 5%);
+      --card: hsl(0 0% 100%);
+      --card-foreground: hsl(222 84% 5%);
+      --primary: hsl(221 83% 53%);
+      --primary-hover: hsl(221 83% 46%);
+      --primary-foreground: hsl(0 0% 100%);
+      --secondary: hsl(210 40% 96%);
+      --secondary-foreground: hsl(222 47% 11%);
+      --muted: hsl(210 40% 96%);
+      --muted-foreground: hsl(215 16% 47%);
+      --accent: hsl(210 40% 96%);
+      --accent-foreground: hsl(222 47% 11%);
+      --destructive: hsl(0 84% 60%);
+      --destructive-hover: hsl(0 84% 50%);
+      --success: hsl(142 71% 45%);
+      --success-hover: hsl(142 71% 38%);
+      --success-light: hsl(142 76% 94%);
+      --warning: hsl(38 92% 50%);
+      --warning-light: hsl(48 96% 89%);
+      --destructive-light: hsl(0 93% 94%);
+      --border: hsl(214 32% 91%);
+      --input: hsl(214 32% 91%);
+      --ring: hsl(221 83% 53%);
+      --radius: 0.5rem;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* ===== БАЗОВЫЕ ===== */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--foreground);
+      margin: 0 0 1rem 0;
+    }
+
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--foreground);
+      margin: 1rem 0 0.5rem 0;
+    }
+
+    p {
+      color: var(--muted-foreground);
+      margin: 0.25rem 0;
+    }
+
+    b {
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: var(--card);
+      color: var(--foreground);
+      padding: 0.875rem 1.5rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.01em;
+    }
+
+    /* ===== КОНТЕЙНЕР ===== */
+    .container {
+      padding: 1.5rem;
+      max-width: 1400px;
+      margin: auto;
+    }
+
+    /* ===== НАВИГАЦИЯ (табы) ===== */
+    nav {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 0;
+    }
+
+    nav button {
+      padding: 0.625rem 1rem;
+      margin: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 0;
+      position: relative;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      transition: color 0.15s ease;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    nav button:hover {
+      color: var(--foreground);
+    }
+
+    nav button.active {
+      background: transparent;
+      color: var(--foreground);
+      border-bottom: 2px solid var(--primary);
+      font-weight: 600;
+    }
+
+    /* ===== БЕЙДЖ НОВЫХ ЗАКАЗОВ ===== */
+    .new-orders-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--destructive);
+      color: white;
+      border-radius: 9999px;
+      min-width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 0 4px;
+      box-shadow: var(--shadow-sm);
+      line-height: 1;
+    }
+
+    .new-orders-badge.hidden {
+      display: none;
+    }
+
+    /* ===== ФИЛЬТРЫ ===== */
+    .filter-buttons {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.375rem;
+    }
+
+    .filter-buttons button {
+      padding: 0.375rem 0.875rem;
+      margin-right: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+    }
+
+    .filter-buttons button:hover {
+      background: var(--accent);
+      color: var(--accent-foreground);
+    }
+
+    .filter-buttons button.active {
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      border-color: var(--foreground);
+    }
+
+    /* ===== ТАБЛИЦЫ ===== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+      background: var(--card);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+
+    th,
+    td {
+      padding: 0.625rem 0.75rem;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      background: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+    }
+
+    tbody tr {
+      transition: background-color 0.1s ease;
+    }
+
+    tbody tr:hover {
+      background-color: var(--muted);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* ===== СТАТУСЫ ЗАКАЗОВ ===== */
+    .status-new {
+      background: var(--warning-light);
+    }
+
+    .status-new:hover {
+      background: hsl(48 96% 85%) !important;
+    }
+
+    .status-confirmed {
+      background: var(--success-light);
+    }
+
+    .status-confirmed:hover {
+      background: hsl(142 76% 90%) !important;
+    }
+
+    .status-rejected {
+      background: var(--destructive-light);
+    }
+
+    .status-rejected:hover {
+      background: hsl(0 93% 90%) !important;
+    }
+
+    .selected {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+
+    /* ===== LAYOUT ЗАКАЗОВ ===== */
+    .orders-layout {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .orders-list {
+      flex: 1;
+    }
+
+    .order-details {
+      flex: 1;
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    /* ===== КНОПКИ ДЕЙСТВИЙ ===== */
+    .action-buttons {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .action-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      margin-right: 0;
+      color: white;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+    }
+
+    .action-buttons .accept {
+      background: var(--success);
+    }
+
+    .action-buttons .accept:hover {
+      background: var(--success-hover);
+    }
+
+    .action-buttons .reject {
+      background: var(--destructive);
+    }
+
+    .action-buttons .reject:hover {
+      background: var(--destructive-hover);
+    }
+
+    .action-buttons .excel {
+      background: var(--primary);
+    }
+
+    .action-buttons .excel:hover {
+      background: var(--primary-hover);
+    }
+
+    .action-buttons button:hover {
+      opacity: 1;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ===== ФОРМЫ ===== */
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    form input[type="text"],
+    form input[type="number"],
+    form select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      background: var(--card);
+      color: var(--foreground);
+      transition: all 0.15s ease;
+      outline: none;
+    }
+
+    form input[type="text"]:focus,
+    form input[type="number"]:focus,
+    form select:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.1);
+    }
+
+    form input[type="text"]::placeholder {
+      color: var(--muted-foreground);
+    }
+
+    form button[type="submit"] {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    form button[type="submit"]:hover {
+      background: var(--primary-hover);
+    }
+
+    form button[type="button"] {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--destructive);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    form button[type="button"]:hover {
+      background: var(--destructive-light);
+      border-color: var(--destructive);
+    }
+
+    /* ===== OPEN BUTTON В ТАБЛИЦЕ ===== */
+    .open-btn {
+      padding: 0.25rem 0.625rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--primary);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .open-btn:hover {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    /* ===== ВЫГРУЗКА ===== */
+    .export-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .export-btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--primary);
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .export-btn:hover {
+      background: var(--primary-hover);
+      opacity: 1;
+    }
+
+    .export-btn.active {
+      background: var(--foreground);
+      border-color: var(--foreground);
+      color: var(--primary-foreground);
+      box-shadow: var(--shadow-md);
+    }
+
+    #export-preview {
+      position: relative;
+      width: 100vw;
+      left: 50%;
+      right: 50%;
+      margin-left: -50vw;
+      margin-right: -50vw;
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: 0;
+      box-shadow: var(--shadow);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      overflow: auto;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #export-preview table td[contenteditable="true"] {
+      background: var(--warning-light);
+    }
+
+    #export-preview table {
+      width: auto;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+
+    #export-preview table th:first-child {
+      width: auto;
+      white-space: nowrap;
+    }
+
+    #export-preview table th.vertical-header {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      min-height: 150px;
+      height: auto;
+      width: 30px;
+      padding: 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    #export-preview table td:first-child {
+      white-space: nowrap;
+      padding: 8px 12px;
+    }
+
+    #export-preview table td[contenteditable="true"] {
+      text-align: center;
+    }
+
+    /* ===== INLINE EDITING (счётчики) ===== */
+    .count-display {
+      cursor: pointer;
+      user-select: none;
+      padding: 2px 6px;
+      border-radius: var(--radius);
+      transition: background-color 0.15s ease;
+    }
+
+    .count-display:hover {
+      background-color: var(--muted);
+    }
+
+    .count-edit {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .count-input {
+      border: 1px solid var(--success);
+      border-radius: var(--radius);
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: center;
+      outline: none;
+    }
+
+    .count-input:focus {
+      border-color: var(--success);
+      box-shadow: 0 0 0 3px hsla(142, 71%, 45%, 0.15);
+    }
+
+    /* ===== КНОПКИ ЭКСПОРТА (SECONDARY) ===== */
+    .export-supplier-btn {
+      display: inline-block;
+      width: fit-content;
+      margin: 0;
+      padding: 0.5rem 1rem;
+      background: var(--card);
+      color: var(--foreground);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .export-supplier-btn:hover {
+      background: var(--accent);
+      border-color: var(--foreground);
+    }
+
+    .export-supplier-btn.excel {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .export-supplier-btn.excel:hover {
+      background: var(--primary-hover);
+    }
+
+    /* ===== БЛОКИ ПОСТАВЩИКОВ (ОТПРАВКА) ===== */
+    #suppliers-send-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .supplier-send-block {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.875rem 1rem;
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      min-width: 400px;
+      transition: box-shadow 0.15s ease;
+    }
+
+    .supplier-send-block:hover {
+      box-shadow: var(--shadow);
+    }
+
+    .supplier-send-block .supplier-name {
+      font-weight: 600;
+      flex: 1;
+      font-size: 0.875rem;
+    }
+
+    .supplier-send-block .send-buttons {
+      display: flex;
+      gap: 0.375rem;
+    }
+
+    .supplier-send-block .send-btn {
+      padding: 0.375rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--foreground);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .supplier-send-block .send-btn:hover {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    #supplier-list {
+      display: none;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    #supplier-list select {
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--input);
+      font-family: inherit;
+      font-size: 0.8125rem;
+    }
+
+    #supplier-list button {
+      margin-left: 0.5rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    #supplier-list button:hover {
+      background: var(--primary-hover);
+    }
+
+    /* ===== ИКОНКИ РЕДАКТИРОВАНИЯ ===== */
+    .edit-icon,
+    .save-icon {
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      transition: all 0.15s ease;
+      border-radius: var(--radius);
+      padding: 2px 4px;
+    }
+
+    .edit-icon:hover {
+      background: hsla(221, 83%, 53%, 0.1);
+      transform: scale(1.1);
+    }
+
+    .save-icon:hover {
+      background: var(--success-light);
+      transform: scale(1.1);
+    }
+
+    .edit-icon {
+      color: var(--primary);
+    }
+
+    .save-icon {
+      color: var(--success);
+      font-size: 18px;
+      font-weight: bold;
+      user-select: none;
+    }
+
+    .products-icon {
+      color: var(--warning);
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      transition: all 0.15s ease;
+      margin-left: 5px;
+      border-radius: var(--radius);
+    }
+
+    .products-icon:hover {
+      background: var(--warning-light);
+      transform: scale(1.1);
+    }
+
+    /* ===== ТОВАРЫ ПОСТАВЩИКА (РАСКРЫВАЮЩИЕСЯ) ===== */
+    .supplier-products-row {
+      display: none;
+    }
+
+    .supplier-products-row.visible {
+      display: table-row;
+    }
+
+    .supplier-products-block {
+      margin-top: 10px;
+      padding: 1rem;
+      background: var(--muted);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .supplier-products-header {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--foreground);
+      font-size: 0.875rem;
+    }
+
+    .supplier-products-list {
+      margin-bottom: 15px;
+    }
+
+    .supplier-products-list table {
+      margin-top: 0;
+      font-size: 0.8125rem;
+    }
+
+    .supplier-products-list th,
+    .supplier-products-list td {
+      padding: 0.3rem 0.5rem;
+    }
+
+    .add-product-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .add-product-section select {
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--input);
+      margin-right: 10px;
+      font-family: inherit;
+      font-size: 0.8125rem;
+    }
+
+    .add-product-section button {
+      margin-left: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: var(--primary-foreground);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .add-product-section option .product-type {
+      color: var(--muted-foreground);
+      font-size: 0.8125rem;
+    }
+
+    /* ===== ПРАВИЛА ПОСТАВЩИКОВ ===== */
+    .supplier-rules-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .supplier-rules-list {
+      margin-bottom: 20px;
+    }
+
+    .supplier-rules-list table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+
+    .supplier-rules-list table td,
+    .supplier-rules-list table th {
+      padding: 0.5rem 0.75rem;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .supplier-rules-list table th {
+      background-color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+    }
+
+    .supplier-rules-list table tr:nth-child(even) {
+      background-color: transparent;
+    }
+
+    .supplier-rules-list table tr:hover {
+      background-color: var(--muted);
+    }
+
+    .supplier-rule-text {
+      max-width: 400px;
+      word-wrap: break-word;
+    }
+
+    .supplier-rule-actions {
+      white-space: nowrap;
+    }
+
+    .supplier-rule-actions span {
+      margin-right: 8px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: var(--radius);
+      transition: background-color 0.15s ease;
+    }
+
+    .supplier-rule-actions span:hover {
+      background-color: var(--muted);
+    }
+
+    .supplier-rule-editing textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--ring);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      resize: vertical;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .supplier-rule-editing textarea:focus {
+      box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.1);
+    }
+
+    .supplier-rule-editing input[type="number"] {
+      padding: 0.375rem 0.5rem;
+      border: 1px solid var(--ring);
+      border-radius: var(--radius);
+      width: 100px;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      outline: none;
+    }
+
+    .supplier-rules-section form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .supplier-rules-section textarea {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      resize: vertical;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .supplier-rules-section textarea:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.1);
+    }
+
+    .supplier-rules-section input[type="number"] {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      width: 120px;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      outline: none;
+    }
+
+    .supplier-rules-section input[type="number"]:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.1);
+    }
+
+    .supplier-rules-section label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--foreground);
+    }
+
+    .supplier-rules-section button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      background: var(--primary);
+      color: var(--primary-foreground);
+      transition: all 0.15s ease;
+    }
+
+    .supplier-rules-section button:hover {
+      background: var(--primary-hover);
+    }
+
+    /* ===== INLINE EDITING ===== */
+    .editable-cell {
+      background-color: var(--warning-light) !important;
+      padding: 0.3rem !important;
+    }
+
+    .editable-cell input {
+      width: calc(100% - 0.6rem);
+      border: 1px solid var(--ring);
+      border-radius: var(--radius);
+      padding: 0.375rem 0.5rem;
+      font-size: inherit;
+      font-family: inherit;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .editable-cell input:focus {
+      box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.1);
+    }
+
+    .editing-row {
+      background-color: hsla(221, 83%, 53%, 0.04) !important;
+    }
+
+    /* ===== CHECKBOX ===== */
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <header>Панель управления заказами <span style="font-size:0.5em;opacity:0.5;font-weight:400;">v2.0 beta</span></header>
+  <div class="container">
+    <nav>
+      <button id="tab-orders" class="active">
+        Заказы
+        <span id="new-orders-badge" class="new-orders-badge hidden">0</span>
+      </button>
+      <button id="tab-export">Выгрузка</button>
+      <button id="tab-points" style="margin-left: 100px;">Точки</button>
+      <button id="tab-products">Товары</button>
+      <button id="tab-suppliers">Поставщики</button>
+      <button id="tab-history" style="display:none;">История</button>
+    </nav>
+
+    <!-- Заказы -->
+    <div id="orders-section">
+      <div class="orders-layout">
+        <div class="orders-list">
+          <h3>Фильтр заказов</h3>
+          <div class="filter-buttons">
+            <button id="filter-new" class="active" data-filter="new">Новые</button>
+            <button id="filter-confirmed" data-filter="confirmed">Подтверждённые</button>
+            <button id="filter-rejected" data-filter="rejected">Отказанные</button>
+            <button id="filter-all" data-filter="all">Все</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Точка</th>
+                <th>Дата</th>
+                <th>Статус</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="orders-table"></tbody>
+          </table>
+        </div>
+        <div id="order-details" class="order-details">
+          <p>Выберите заказ слева, чтобы увидеть детали.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Точки -->
+    <div id="points-section" style="display:none;">
+      <h3>Точки</h3>
+      <form id="points-form">
+        <input type="text" id="point-name" placeholder="Название" required>
+        <input type="text" id="point-owner" placeholder="Владелец">
+        <input type="text" id="point-idtg" placeholder="ID Telegram точки" required>
+        <input type="text" id="point-manager-telegram-id" placeholder="ID Telegram управляющего">
+        <input type="text" id="point-address" placeholder="Адрес">
+        <input type="text" id="point-note" placeholder="Примечание">
+        <button type="submit">Добавить точку</button>
+        <button type="button" onclick="deleteSelectedPoints()">Удалить выбранные</button>
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all" onchange="toggleAllPoints(this)"></th>
+            <th>Название</th>
+            <th>Адрес</th>
+            <th>Владелец</th>
+            <th>ID Telegram точки</th>
+            <th>ID Telegram управляющего</th>
+            <th>Примечание</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="points-table"></tbody>
+      </table>
+    </div>
+
+    <!-- Товары -->
+    <div id="products-section" style="display:none;">
+      <h3>Товары</h3>
+      <form id="products-form">
+        <input type="text" id="product-name" placeholder="Название товара" required>
+        <input type="text" id="product-unit" placeholder="Единица измерения">
+        <input type="text" id="product-type" placeholder="Вид товара (категория)">
+        <button type="submit">Добавить товар</button>
+        <button type="button" onclick="deleteSelectedProducts()">Удалить выбранные</button>
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all-products" onchange="toggleAllProducts(this)"></th>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Единица измерения</th>
+            <th>Вид товара</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="products-table"></tbody>
+      </table>
+    </div>
+
+    <!-- Выгрузка -->
+    <div id="export-section" style="display:none;">
+      <h3 style="text-align:center;">Выгрузка</h3>
+      <div class="export-buttons" id="export-buttons-container">
+        <!-- Кнопки будут сформированы динамически на основе product_type -->
+      </div>
+
+      <div id="suppliers-send-container" style="display: none; margin-bottom: 1rem;">
+        <!-- Блоки поставщиков будут добавлены динамически -->
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+        <button id="refresh-export" class="export-supplier-btn">Обновить</button>
+        <button id="export-to-excel-btn" class="export-supplier-btn excel">Сохранить в Excel</button>
+        <button id="show-suppliers-btn" class="export-supplier-btn">Показать поставщиков</button>
+      </div>
+
+      <div id="export-preview">
+        <p style="text-align:center;">Выберите тип выгрузки выше, чтобы увидеть таблицу.</p>
+      </div>
+    </div>
+
+    <!-- Поставщики -->
+    <div id="suppliers-section" style="display:none;">
+      <h3>Поставщики</h3>
+      <form id="suppliers-form">
+        <input type="text" id="supplier-name" placeholder="Название поставщика" required>
+        <input type="text" id="supplier-email" placeholder="Email">
+        <input type="text" id="supplier-telegram" placeholder="Telegram">
+        <button type="submit">Добавить</button>
+        <button type="button" onclick="deleteSelectedSuppliers()">Удалить выбранные</button>
+      </form>
+
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all-suppliers" onchange="toggleAllSuppliers(this)"></th>
+            <th>Название</th>
+            <th>Email</th>
+            <th>Telegram</th>
+            <th>Telegram ID</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="suppliers-table"></tbody>
+      </table>
+    </div>
+
+    <!-- История -->
+    <div id="history-section" style="display:none;">
+      <h3>История подтверждённых заказов</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Точка</th>
+            <th>Действие</th>
+          </tr>
+        </thead>
+        <tbody id="history-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    let currentFilter = 'new';
+    let selectedOrderId = null;
+
+    // ==== Tabs ====
+    document.getElementById('tab-orders').onclick = () => switchTab('orders');
+    document.getElementById('tab-points').onclick = () => switchTab('points');
+    document.getElementById('tab-products').onclick = () => switchTab('products');
+    document.getElementById('tab-suppliers').onclick = () => switchTab('suppliers');
+    document.getElementById('tab-export').onclick = () => switchTab('export');
+
+    // Отслеживание текущей активной вкладки
+    let currentActiveTab = 'orders';
+
+    // Обновляем историю при открытии вкладки
+    function switchTab(tab) {
+      currentActiveTab = tab;
+      document.getElementById('orders-section').style.display = tab === 'orders' ? 'block' : 'none';
+      document.getElementById('points-section').style.display = tab === 'points' ? 'block' : 'none';
+      document.getElementById('products-section').style.display = tab === 'products' ? 'block' : 'none';
+      document.getElementById('suppliers-section').style.display = tab === 'suppliers' ? 'block' : 'none';
+      document.getElementById('export-section').style.display = tab === 'export' ? 'block' : 'none';
+      document.getElementById('history-section').style.display = tab === 'history' ? 'block' : 'none';
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+
+      if (tab === 'orders') {
+        // Загружаем заказы только при открытии вкладки
+        fetchOrders();
+      }
+      if (tab === 'history') fetchHistory();
+      if (tab === 'points') {
+        // Загружаем точки только при открытии вкладки
+        fetchPoints();
+      }
+      if (tab === 'products') {
+        // Загружаем товары только при открытии вкладки
+        fetchProducts();
+      }
+      if (tab === 'suppliers') {
+        // Загружаем поставщиков только при открытии вкладки
+        fetchSuppliers();
+      }
+      if (tab === 'export') {
+        // Загружаем данные для выгрузки только при открытии вкладки
+        loadExportData();
+      }
+    }
+
+    const refreshBtn = document.getElementById('refresh-export');
+    const exportToExcelBtn = document.getElementById('export-to-excel-btn');
+    const showSuppliersBtn = document.getElementById('show-suppliers-btn');
+
+    // Инициализируем флаг режима показа поставщиков
+    window.exportShowSuppliersPerPoint = false;
+
+    refreshBtn.addEventListener('click', async function () {
+      // Обновляем данные
+      await loadExportData();
+
+      // Находим активную кнопку export-btn
+      const activeBtn = document.querySelector('.export-btn.active');
+
+      if (activeBtn && selectedProductType) {
+        // Обновляем таблицу с текущим типом товара
+        renderExportPreview(selectedProductType);
+        // Обновляем блок поставщиков для отправки
+        renderSuppliersForSend(selectedProductType);
+      }
+    });
+
+    exportToExcelBtn.addEventListener('click', async function () {
+      if (!selectedProductType) {
+        alert('Выберите тип товара для экспорта');
+        return;
+      }
+      await exportExportToExcel(selectedProductType);
+    });
+
+    if (showSuppliersBtn) {
+      showSuppliersBtn.addEventListener('click', function () {
+        // Переключаем режим показа поставщиков
+        window.exportShowSuppliersPerPoint = !window.exportShowSuppliersPerPoint;
+
+        // Обновляем текст кнопки
+        if (window.exportShowSuppliersPerPoint) {
+          showSuppliersBtn.textContent = 'Скрыть поставщиков';
+        } else {
+          showSuppliersBtn.textContent = 'Показать поставщиков';
+        }
+
+        // Перерисовываем таблицу, если есть активный тип товара
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          renderExportPreview(selectedProductType);
+          renderSuppliersForSend(selectedProductType);
+        }
+      });
+    }
+
+    // ==== Orders ====
+    async function fetchOrders() {
+      try {
+        const res = await fetch(`/orders?status=${currentFilter}`);
+        if (!res.ok) throw new Error('Ошибка загрузки заказов');
+        const orders = await res.json();
+        const tbody = document.getElementById('orders-table');
+        tbody.innerHTML = '';
+        if (!orders.length) {
+          tbody.innerHTML = `<tr><td colspan="5">Нет заказов</td></tr>`;
+          // Все равно проверяем количество новых заказов
+          await updateNewOrdersCount();
+          return;
+        }
+
+        // Подсчитываем количество новых заказов из текущего списка
+        const newOrdersCount = orders.filter(o => o.status === 'new').length;
+
+        // Если фильтр не "all", нужно получить общее количество новых заказов
+        if (currentFilter !== 'all') {
+          await updateNewOrdersCount();
+        } else {
+          updateNewOrdersBadge(newOrdersCount);
+        }
+
+        for (const o of orders) {
+          const statusClass = o.status === 'new' ? 'status-new' : o.status === 'confirmed' ? 'status-confirmed' : 'status-rejected';
+          const selectedClass = o.id === selectedOrderId ? 'selected' : '';
+          const row = document.createElement('tr');
+          row.className = `${statusClass} ${selectedClass}`;
+          row.innerHTML = `
+          <td>${o.id}</td>
+          <td>${o.point ? o.point.name : ''}</td>
+          <td>${new Date(o.created_at).toLocaleString()}</td>
+          <td>${o.status}</td>
+          <td><button data-id="${o.id}" class="open-btn">Открыть</button></td>
+      `;
+          tbody.appendChild(row);
+        }
+        document.querySelectorAll('.open-btn').forEach(btn => {
+          btn.onclick = () => showOrder(btn.dataset.id);
+        });
+      } catch (err) { console.error(err); }
+    }
+
+    async function updateNewOrdersCount() {
+      try {
+        // Получаем все новые заказы только если вкладка "Заказы" активна и фильтр "all"
+        if (currentActiveTab === 'orders' && currentFilter === 'all') {
+          const res = await fetch('/orders?status=all');
+          if (!res.ok) return;
+          const allOrders = await res.json();
+          const newOrdersCount = allOrders.filter(o => o.status === 'new').length;
+          updateNewOrdersBadge(newOrdersCount);
+        }
+      } catch (err) {
+        console.error('Ошибка при обновлении счетчика новых заказов:', err);
+      }
+    }
+
+    function updateNewOrdersBadge(count) {
+      const badge = document.getElementById('new-orders-badge');
+      if (!badge) return;
+
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function setFilter(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-buttons button').forEach(b => b.classList.remove('active'));
+      document.querySelector(`button[data-filter="${status}"]`).classList.add('active');
+      fetchOrders();
+    }
+    document.querySelectorAll('.filter-buttons button').forEach(btn => {
+      btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+    });
+
+    async function showOrder(id) {
+      selectedOrderId = parseInt(id);
+      fetchOrders();
+      const res = await fetch(`/orders/${id}`);
+      if (!res.ok) return;
+      const o = await res.json();
+      let html = `
+      <h3>Заказ №${o.id}</h3>
+      <p><b>Точка:</b> ${o.point ? o.point.name : ''}</p>
+      <p><b>Дата:</b> ${new Date(o.created_at).toLocaleString()}</p>
+      <p><b>Имя TG:</b> ${o.tg_name}</p>
+      <p><b>Username TG:</b> ${o.tg_username}</p>
+      <p><b>Статус:</b> ${o.status}</p>
+      <h4>Продукты:</h4>
+      <table><thead><tr><th>Название</th><th>Кол-во</th><th>Ед. изм.</th></tr></thead><tbody>
+  `;
+      o.items.forEach(i => {
+        html += `<tr><td>${i.name}</td><td>${i.count}</td><td>${i.unit || '—'}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      html += `<div class="action-buttons"><button class="excel" id="export-btn">Сохранить в Excel</button></div>`;
+      if (o.status === 'new') {
+        html += `<div class="action-buttons">
+      <button class="accept" id="accept-btn">Принять</button>
+      <button class="reject" id="reject-btn">Отклонить</button>
+    </div>`;
+      }
+      const details = document.getElementById('order-details');
+      details.innerHTML = html;
+      document.getElementById('export-btn').onclick = () => exportToExcel(o.id);
+      if (o.status === 'new') {
+        document.getElementById('accept-btn').onclick = () => confirmAction(o.id, 'confirmed');
+        document.getElementById('reject-btn').onclick = () => confirmAction(o.id, 'rejected');
+      }
+    }
+
+    async function confirmAction(orderId, newStatus) {
+      const actionText = newStatus === 'confirmed' ? 'принять' : 'отклонить';
+      if (confirm(`Вы уверены, что хотите ${actionText} этот заказ?`)) {
+        const res = await fetch(`/orders/${orderId}/status?status=${newStatus}`, { method: 'PATCH' });
+        if (res.ok) showOrder(orderId);
+        else alert('Ошибка при обновлении статуса');
+      }
+    }
+    async function exportToExcel(orderId) {
+      const res = await fetch(`/orders/${orderId}/export`);
+      if (!res.ok) return alert("Ошибка при экспорте в Excel");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `order_${orderId}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    // ==== Points ====
+    let editingPointId = null; // ID точки, которая сейчас редактируется
+
+    // Универсальные функции для сохранения/восстановления состояния чекбоксов
+    function saveCheckboxesState(tableId, selectAllId) {
+      const state = {
+        selectAll: false,
+        checked: []
+      };
+
+      const selectAll = document.getElementById(selectAllId);
+      if (selectAll) {
+        state.selectAll = selectAll.checked;
+      }
+
+      const tbody = document.getElementById(tableId);
+      if (tbody) {
+        tbody.querySelectorAll('input[type="checkbox"][value]').forEach(cb => {
+          if (cb.checked) {
+            state.checked.push(cb.value);
+          }
+        });
+      }
+
+      return state;
+    }
+
+    function restoreCheckboxesState(tableId, selectAllId, state) {
+      if (!state) return;
+
+      const selectAll = document.getElementById(selectAllId);
+      if (selectAll && state.selectAll !== undefined) {
+        selectAll.checked = state.selectAll;
+      }
+
+      const tbody = document.getElementById(tableId);
+      if (tbody && state.checked) {
+        tbody.querySelectorAll('input[type="checkbox"][value]').forEach(cb => {
+          cb.checked = state.checked.includes(cb.value);
+        });
+      }
+    }
+
+    async function fetchPoints() {
+      // Сохраняем состояние чекбоксов перед обновлением
+      const checkboxesState = saveCheckboxesState('points-table', 'select-all');
+
+      const res = await fetch('/points');
+      const points = await res.json();
+      const tbody = document.getElementById('points-table');
+      tbody.innerHTML = '';
+
+      if (points.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Нет точек для отображения</td></tr>';
+        return;
+      }
+
+      points.forEach(p => {
+        const isEditing = editingPointId === p.id;
+        tbody.innerHTML += `
+      <tr id="point-row-${p.id}" class="${isEditing ? 'editing-row' : ''}">
+        <td><input type="checkbox" value="${p.id}"></td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.name ?? ''}" data-field="name">` : (p.name ?? '-')}</td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.address ?? ''}" data-field="address">` : (p.address ?? '-')}</td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.owner ?? ''}" data-field="owner">` : (p.owner ?? '-')}</td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.idTg ?? ''}" data-field="idTg">` : (p.idTg ?? '')}</td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.manager_telegram_id ?? ''}" data-field="manager_telegram_id">` : (p.manager_telegram_id ?? '-')}</td>
+        <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.note ?? ''}" data-field="note">` : (p.note ?? '-')}</td>
+        <td>
+          ${isEditing
+            ? `<span class="save-icon" onclick="savePoint(${p.id})" title="Сохранить">✓</span>`
+            : `<span class="edit-icon" onclick="editPoint(${p.id})" title="Редактировать">✎</span>`
+          }
+        </td>
+      </tr>
+    `;
+      });
+
+      // Восстанавливаем состояние чекбоксов после обновления
+      restoreCheckboxesState('points-table', 'select-all', checkboxesState);
+    }
+
+    function editPoint(pointId) {
+      // Если уже редактируется другая точка - отменяем редактирование
+      if (editingPointId !== null && editingPointId !== pointId) {
+        // Можно добавить подтверждение или просто переключиться
+        editingPointId = pointId;
+        fetchPoints();
+        return;
+      }
+
+      editingPointId = pointId;
+      fetchPoints();
+    }
+
+    async function savePoint(pointId) {
+      const row = document.getElementById(`point-row-${pointId}`);
+      if (!row) return;
+
+      // Собираем данные из input полей
+      const inputs = row.querySelectorAll('input[data-field]');
+      const data = {};
+
+      inputs.forEach(input => {
+        const field = input.getAttribute('data-field');
+        const value = input.value.trim();
+        // Передаем только непустые значения или null для пустых строк
+        data[field] = value || null;
+      });
+
+      // Проверяем обязательные поля (idTg должен быть заполнен)
+      if (!data.idTg) {
+        alert('ID Telegram точки обязателен для заполнения');
+        return;
+      }
+
+      try {
+        // Отправляем PATCH запрос
+        const res = await fetch(`/points/${pointId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          // Проверяем Content-Type перед парсингом JSON
+          const contentType = res.headers.get('content-type');
+          let errorMessage = 'Ошибка при обновлении';
+
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const error = await res.json();
+              errorMessage = error.detail || error.message || errorMessage;
+            } catch (e) {
+              errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            }
+          } else {
+            // Если не JSON, читаем как текст
+            const text = await res.text();
+            errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            if (text && text.length < 200) {
+              errorMessage += ` - ${text}`;
+            }
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        // Выходим из режима редактирования
+        editingPointId = null;
+
+        // Обновляем данные
+        await fetchPoints();
+      } catch (error) {
+        alert('Ошибка при сохранении: ' + error.message);
+      }
+    }
+
+    document.getElementById('points-form').onsubmit = async e => {
+      e.preventDefault();
+      const name = document.getElementById('point-name').value.trim();
+      const owner = document.getElementById('point-owner').value.trim();
+      const idTg = document.getElementById('point-idtg').value.trim();
+      const managerTelegramId = document.getElementById('point-manager-telegram-id').value.trim();
+      const address = document.getElementById('point-address').value.trim();
+      const note = document.getElementById('point-note').value.trim();
+
+      if (!name || !idTg) return alert('Пожалуйста, заполните обязательные поля: Название и ID Telegram точки.');
+
+      await fetch('/points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          owner: owner || null,
+          idTg,
+          manager_telegram_id: managerTelegramId || null,
+          address: address || null,
+          note: note || null
+        })
+      });
+
+      document.getElementById('point-name').value = '';
+      document.getElementById('point-owner').value = '';
+      document.getElementById('point-idtg').value = '';
+      document.getElementById('point-manager-telegram-id').value = '';
+      document.getElementById('point-address').value = '';
+      document.getElementById('point-note').value = '';
+
+      fetchPoints();
+    };
+
+    function toggleAllPoints(cb) {
+      document.querySelectorAll('#points-table input[type=checkbox]').forEach(c => c.checked = cb.checked);
+    }
+    async function deleteSelectedPoints() {
+      const ids = Array.from(document.querySelectorAll('#points-table input[type=checkbox]:checked')).map(c => parseInt(c.value));
+      if (!ids.length) return;
+      await fetch('/points/delete', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids)
+      });
+      fetchPoints();
+    }
+
+    // ==== Products ====
+    let editingProductId = null; // ID товара, который сейчас редактируется
+
+    async function fetchProducts() {
+      // Сохраняем состояние чекбоксов перед обновлением
+      const checkboxesState = saveCheckboxesState('products-table', 'select-all-products');
+
+      const res = await fetch('/products');
+      const products = await res.json();
+      const tbody = document.getElementById('products-table');
+      tbody.innerHTML = '';
+
+      if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Нет товаров для отображения</td></tr>';
+        return;
+      }
+
+      products.forEach(p => {
+        const isEditing = editingProductId === p.id;
+        tbody.innerHTML += `
+          <tr id="product-row-${p.id}" class="${isEditing ? 'editing-row' : ''}">
+            <td><input type="checkbox" value="${p.id}"></td>
+            <td>${p.id ?? ''}</td>
+            <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.name ?? ''}" data-field="name">` : (p.name ?? '-')}</td>
+            <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.unit ?? ''}" data-field="unit">` : (p.unit ?? '-')}</td>
+            <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${p.product_type ?? ''}" data-field="product_type">` : (p.product_type ?? '-')}</td>
+            <td>
+              ${isEditing
+            ? `<span class="save-icon" onclick="saveProduct(${p.id})" title="Сохранить">✓</span>`
+            : `<span class="edit-icon" onclick="editProduct(${p.id})" title="Редактировать">✎</span>`
+          }
+            </td>
+          </tr>
+        `;
+      });
+
+      // Восстанавливаем состояние чекбоксов после обновления
+      restoreCheckboxesState('products-table', 'select-all-products', checkboxesState);
+    }
+
+    function editProduct(productId) {
+      // Если уже редактируется другой товар - переключаемся
+      if (editingProductId !== null && editingProductId !== productId) {
+        editingProductId = productId;
+        fetchProducts();
+        return;
+      }
+
+      editingProductId = productId;
+      fetchProducts();
+    }
+
+    async function saveProduct(productId) {
+      const row = document.getElementById(`product-row-${productId}`);
+      if (!row) return;
+
+      // Собираем данные из input полей
+      const inputs = row.querySelectorAll('input[data-field]');
+      const data = {};
+
+      inputs.forEach(input => {
+        const field = input.getAttribute('data-field');
+        const value = input.value.trim();
+        data[field] = value || null;
+      });
+
+      // Проверяем обязательные поля (name должен быть заполнен)
+      if (!data.name) {
+        alert('Название товара обязательно для заполнения');
+        return;
+      }
+
+      try {
+        // Отправляем PATCH запрос
+        const res = await fetch(`/products/${productId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          // Проверяем Content-Type перед парсингом JSON
+          const contentType = res.headers.get('content-type');
+          let errorMessage = 'Ошибка при обновлении';
+
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const error = await res.json();
+              errorMessage = error.detail || error.message || errorMessage;
+            } catch (e) {
+              errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            }
+          } else {
+            // Если не JSON, читаем как текст
+            const text = await res.text();
+            errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            if (text && text.length < 200) {
+              errorMessage += ` - ${text}`;
+            }
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        // Выходим из режима редактирования
+        editingProductId = null;
+
+        // Обновляем данные
+        await fetchProducts();
+      } catch (error) {
+        alert('Ошибка при сохранении: ' + error.message);
+      }
+    }
+
+    document.getElementById('products-form').onsubmit = async e => {
+      e.preventDefault();
+      const name = document.getElementById('product-name').value.trim();
+      const unit = document.getElementById('product-unit').value.trim();
+      const productType = document.getElementById('product-type').value.trim();
+
+      if (!name) return alert('Пожалуйста, заполните обязательное поле: Название товара.');
+
+      await fetch('/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          unit: unit || null,
+          product_type: productType || null
+        })
+      });
+
+      document.getElementById('product-name').value = '';
+      document.getElementById('product-unit').value = '';
+      document.getElementById('product-type').value = '';
+
+      fetchProducts();
+    };
+
+    function toggleAllProducts(cb) {
+      document.querySelectorAll('#products-table input[type=checkbox]').forEach(c => c.checked = cb.checked);
+    }
+
+    async function deleteSelectedProducts() {
+      const ids = Array.from(document.querySelectorAll('#products-table input[type=checkbox]:checked')).map(c => parseInt(c.value));
+      if (!ids.length) return;
+
+      if (!confirm(`Вы уверены, что хотите удалить ${ids.length} товар(ов)?`)) return;
+
+      for (const id of ids) {
+        await fetch(`/products/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      fetchProducts();
+    }
+
+    // ==== Выгрузка ====
+    let exportButtons = [];
+    let selectedExport = null;
+    let selectedProductType = null; // Сохраняем выбранный тип товара
+
+    // cookie helpers
+    function setCookie(name, value, expires) {
+      document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/`;
+    }
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    // ==== Tab History ====
+    document.getElementById('tab-history').onclick = () => switchTab('history');
+
+    async function fetchHistory() {
+      try {
+        const res = await fetch('/history/confirmed');
+        if (!res.ok) throw new Error('Ошибка загрузки истории');
+        const history = await res.json();
+
+        history.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const tbody = document.getElementById('history-table');
+        tbody.innerHTML = '';
+
+        if (!history.length) {
+          tbody.innerHTML = `<tr><td colspan="2">Нет подтверждённых записей истории</td></tr>`;
+          return;
+        }
+
+        for (const h of history) {
+          const fileName = h.file_path.split('/').pop(); // берём только имя файла
+          const row = document.createElement('tr');
+          row.innerHTML = `
+                <td>${new Date(h.created_at).toLocaleString()}</td>
+                <td>
+                    ${fileName}
+                </td>
+                <td><button onclick="downloadHistory(${h.id})">Скачать</button></td>
+            `;
+          tbody.appendChild(row);
+        }
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+
+    async function downloadHistory(historyId) {
+      const res = await fetch(`/history/${historyId}/download`);
+      if (!res.ok) return alert("Ошибка при скачивании Excel");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `history_${historyId}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    // highlight selected or sent
+    function updateExportButtonColors() {
+      exportButtons.forEach(btn => {
+        if (getCookie(`sent_${btn.id}`)) {
+          btn.style.background = '#4caf50'; // зеленый для отправленных
+          btn.classList.remove('active'); // оранжевый не нужен
+        } else if (btn.id === selectedExport) {
+          btn.style.background = '#ff9800'; // оранжевый для выбранной
+          btn.classList.add('active');
+        } else {
+          btn.style.background = '#4a90e2'; // дефолт
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    // Функция для загрузки всех данных для вкладки "Выгрузка"
+    async function loadExportData() {
+      try {
+        // Параллельно загружаем все необходимые данные
+        const [suppliersRes, ordersRes, typesRes, productsRes] = await Promise.all([
+          fetch('/suppliers/simple'),
+          fetch('/orders/pending-supplier'),
+          fetch('/products/types'),
+          fetch('/products')
+        ]);
+
+        // Обрабатываем поставщиков
+        if (suppliersRes.ok) {
+          const suppliers = await suppliersRes.json();
+          console.log('Поставщики загружены:', suppliers);
+          // Здесь можно сохранить данные для дальнейшего использования
+          window.exportSuppliers = suppliers;
+        } else {
+          console.error('Ошибка загрузки поставщиков:', suppliersRes.status);
+        }
+
+        // Обрабатываем заказы
+        if (ordersRes.ok) {
+          const orders = await ordersRes.json();
+          console.log('Заказы для поставщиков загружены:', orders);
+          // Здесь можно сохранить данные для дальнейшего использования
+          window.exportPendingOrders = orders;
+          // Обновляем badge после загрузки заказов
+          if (exportButtons.length > 0) {
+            updateExportButtonsBadges();
+          }
+        } else {
+          console.error('Ошибка загрузки заказов:', ordersRes.status);
+        }
+
+        // Обрабатываем товары
+        if (productsRes.ok) {
+          const products = await productsRes.json();
+          console.log('Товары загружены:', products);
+          // Здесь можно сохранить данные для дальнейшего использования
+          window.exportProducts = products;
+        } else {
+          console.error('Ошибка загрузки товаров:', productsRes.status);
+        }
+
+        // Обрабатываем типы товаров и формируем кнопки
+        if (typesRes.ok) {
+          const typesData = await typesRes.json();
+          await loadExportButtons(typesData);
+        } else {
+          console.error('Ошибка загрузки типов товаров:', typesRes.status);
+        }
+      } catch (err) {
+        console.error('Ошибка при загрузке данных для выгрузки:', err);
+      }
+    }
+
+    // Функция для загрузки типов товаров и формирования кнопок
+    async function loadExportButtons(typesData = null) {
+      try {
+        let productTypes = [];
+
+        // Если данные переданы, используем их, иначе делаем запрос
+        if (typesData) {
+          productTypes = typesData.product_types || [];
+        } else {
+          const res = await fetch('/products/types');
+          if (!res.ok) throw new Error('Ошибка загрузки типов товаров');
+          const data = await res.json();
+          productTypes = data.product_types || [];
+        }
+
+        const container = document.getElementById('export-buttons-container');
+        container.innerHTML = ''; // Очищаем контейнер
+
+        if (productTypes.length === 0) {
+          container.innerHTML = '<p>Нет доступных типов товаров для выгрузки</p>';
+          return;
+        }
+
+        // Формируем кнопки для каждого типа товара
+        productTypes.forEach(productType => {
+          const button = document.createElement('button');
+          button.className = 'export-btn';
+          // Создаем ID из типа товара (заменяем пробелы и спецсимволы на дефисы, приводим к нижнему регистру)
+          const buttonId = `export-${productType.toLowerCase().replace(/[^a-zа-я0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+          button.id = buttonId;
+          button.textContent = productType;
+
+          // Добавляем обработчик клика
+          button.addEventListener('click', () => {
+            selectedExport = buttonId;
+            selectedProductType = productType; // Сохраняем тип товара
+            updateExportButtonColors();
+            // Формируем таблицу на основе данных
+            renderExportPreview(productType);
+            // Обновляем блок поставщиков для отправки
+            renderSuppliersForSend(productType);
+          });
+
+          container.appendChild(button);
+        });
+
+        // Обновляем список кнопок для работы с цветами
+        exportButtons = Array.from(container.querySelectorAll('.export-btn'));
+
+        // Восстанавливаем состояние кнопок
+        updateExportButtonColors();
+
+        // Обновляем badge на кнопках
+        updateExportButtonsBadges();
+      } catch (err) {
+        console.error('Ошибка при загрузке типов товаров:', err);
+        const container = document.getElementById('export-buttons-container');
+        container.innerHTML = '<p style="color: red;">Ошибка загрузки типов товаров</p>';
+      }
+    }
+
+
+    // Функция для подсчета количества позиций товаров для отправки по типу
+    function countPendingItemsByType(productType) {
+      if (!window.exportPendingOrders || !productType) return 0;
+
+      const itemsSet = new Set();
+      window.exportPendingOrders.forEach(order => {
+        order.items.forEach(item => {
+          if (item.type && item.type.toLowerCase() === productType.toLowerCase()) {
+            // Считаем уникальные позиции (product_id + suppliers_id)
+            const key = `${item.product_id || 'no-product'}_${item.suppliers_id || 'no-supplier'}`;
+            itemsSet.add(key);
+          }
+        });
+      });
+
+      return itemsSet.size;
+    }
+
+    // Обновление badge на кнопках типов товаров
+    function updateExportButtonsBadges() {
+      if (!window.exportPendingOrders) return;
+
+      exportButtons.forEach(btn => {
+        // Находим тип товара из текста кнопки
+        const productType = btn.textContent.trim();
+        const count = countPendingItemsByType(productType);
+
+        // Удаляем старый badge, если есть
+        const oldBadge = btn.querySelector('.export-type-badge');
+        if (oldBadge) {
+          oldBadge.remove();
+        }
+
+        // Добавляем новый badge, если есть товары
+        if (count > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'export-type-badge new-orders-badge';
+          badge.textContent = count > 99 ? '99+' : count;
+          badge.style.position = 'absolute';
+          badge.style.top = '-8px';
+          badge.style.right = '-8px';
+          btn.style.position = 'relative';
+          btn.appendChild(badge);
+        }
+      });
+    }
+
+    // Функция для отображения таблицы на основе данных
+    function renderExportPreview(productType) {
+      const container = document.getElementById('export-preview');
+
+      if (!window.exportProducts || !window.exportPendingOrders) {
+        container.innerHTML = '<p style="text-align:center;">Данные не загружены. Нажмите "Обновить".</p>';
+        return;
+      }
+
+      // Фильтруем товары по типу (показываем все товары данного типа)
+      const filteredProducts = window.exportProducts.filter(p =>
+        p.product_type && p.product_type.toLowerCase() === productType.toLowerCase()
+      );
+
+      if (filteredProducts.length === 0) {
+        container.innerHTML = '<p style="text-align:center;">Нет товаров данного типа.</p>';
+        return;
+      }
+
+      // Создаем карту данных: product_id -> point_id -> count
+      const dataMap = new Map();
+      const pointsWithOrders = new Set(); // Точки, у которых есть заказы с товарами данного типа
+
+      window.exportPendingOrders.forEach(order => {
+        if (!order.point) return;
+
+        order.items.forEach(item => {
+          if (item.type && item.type.toLowerCase() === productType.toLowerCase() && item.product_id) {
+            // Добавляем точку в список, если есть товары данного типа
+            pointsWithOrders.add(order.point.id);
+
+            const key = `${item.product_id}_${order.point.id}`;
+            if (!dataMap.has(key)) {
+              dataMap.set(key, {
+                product_id: item.product_id,
+                point_id: order.point.id,
+                count: 0
+              });
+            }
+            dataMap.get(key).count += item.count || 0;
+          }
+        });
+      });
+
+      // Собираем только те точки, у которых есть заказы с товарами данного типа
+      const pointsMap = new Map();
+      window.exportPendingOrders.forEach(order => {
+        if (order.point && order.point.id && pointsWithOrders.has(order.point.id)) {
+          if (!pointsMap.has(order.point.id)) {
+            pointsMap.set(order.point.id, {
+              name: order.point.name,
+              owner: order.point.owner || null
+            });
+          }
+        }
+      });
+
+      // Сортируем точки по owner, затем по name
+      const points = Array.from(pointsMap.entries())
+        .map(([id, data]) => ({ id, name: data.name, owner: data.owner || '' }))
+        .sort((a, b) => {
+          // Сначала сортируем по owner
+          if (a.owner !== b.owner) {
+            return a.owner.localeCompare(b.owner);
+          }
+          // Если owner одинаковый, сортируем по name
+          return a.name.localeCompare(b.name);
+        });
+
+      // Создаем карту поставщиков: product_id -> point_id -> supplier_id
+      const suppliersMap = new Map();
+      window.exportPendingOrders.forEach(order => {
+        if (!order.point) return;
+
+        order.items.forEach(item => {
+          if (item.type && item.type.toLowerCase() === productType.toLowerCase() && item.product_id && item.suppliers_id) {
+            const key = `${item.product_id}_${order.point.id}`;
+            if (!suppliersMap.has(key)) {
+              suppliersMap.set(key, new Set());
+            }
+            suppliersMap.get(key).add(item.suppliers_id);
+          }
+        });
+      });
+
+      // Создаем карту названий поставщиков
+      const suppliersNamesMap = new Map();
+      if (window.exportSuppliers) {
+        window.exportSuppliers.forEach(supplier => {
+          suppliersNamesMap.set(supplier.id, supplier.name);
+        });
+      }
+
+      // Проверяем режим отображения поставщиков
+      const showSuppliersPerPoint = window.exportShowSuppliersPerPoint || false;
+
+      // Формируем HTML таблицы
+      let html = '<table><thead><tr>';
+      html += '<th style="text-align: left;">Товар</th>'; // Объединенная колонка
+      points.forEach(point => {
+        const headerText = point.owner ? `${point.name} (${point.owner})` : point.name;
+        // Определяем цвет фона в зависимости от owner
+        let backgroundColor = '';
+        if (point.owner && point.owner.toLowerCase().includes('афонин')) {
+          backgroundColor = 'background-color: #72ac50;';
+        }
+        html += `<th class="vertical-header" style="white-space: nowrap; ${backgroundColor}">${headerText}</th>`;
+      });
+      if (!showSuppliersPerPoint) {
+        html += '<th class="vertical-header">Поставщик</th>';
+      }
+      html += '</tr></thead><tbody>';
+
+      // Выводим товары
+      filteredProducts.forEach(product => {
+        html += '<tr>';
+        // Первая колонка: название + единица измерения
+        const productName = `${product.name}${product.unit ? ', ' + product.unit : ''}`;
+        html += `<td style="text-align: left;">${productName}</td>`;
+
+        // Колонки для каждой точки
+        points.forEach(point => {
+          const key = `${product.id}_${point.id}`;
+          const data = dataMap.get(key);
+          const count = data ? (data.count || 0) : 0;
+          const cellId = `count-cell-${product.id}-${point.id}`;
+          // Экранируем productType для использования в JavaScript
+          const escapedProductType = productType.replace(/'/g, "\\'");
+
+          if (showSuppliersPerPoint) {
+            // Режим показа поставщиков для каждой точки
+            const supplierIds = suppliersMap.get(key);
+            let supplierHtml = '';
+            if (supplierIds && supplierIds.size > 0) {
+              const supplierId = Array.from(supplierIds)[0]; // Берем первого поставщика
+              const supplierName = suppliersNamesMap.get(supplierId);
+              if (supplierName) {
+                supplierHtml = `<div id="supplier-row-${product.id}-${point.id}-${supplierId}" style="margin-bottom: 0; display: flex; align-items: center; gap: 5px; white-space: nowrap;"><span id="supplier-name-${product.id}-${point.id}-${supplierId}">${supplierName}</span><span class="edit-icon" onclick="editProductSupplierPoint(${product.id}, ${point.id}, ${supplierId})" title="Редактировать поставщика">✎</span></div>`;
+              }
+            }
+            // Число и поставщик в одной строке
+            html += `<td id="${cellId}" style="text-align: left; vertical-align: top;">
+              <span class="count-display" style="display: inline-block; margin-right: 5px; cursor: pointer;" onclick="startEditCount(${product.id}, ${point.id}, '${escapedProductType}', ${count}, '${cellId}', event)">${count > 0 ? count : ''}</span>
+              <span class="count-edit" style="display: none;">
+                <input type="text" class="count-input" value="${count}" style="width: 60px; margin-right: 5px;">
+                <span class="save-icon" onclick="saveCount(event, ${product.id}, ${point.id}, '${escapedProductType}', '${cellId}')" title="Сохранить" style="cursor: pointer;">✓</span>
+              </span>
+              ${supplierHtml}
+            </td>`;
+          } else {
+            // Обычный режим - только количество
+            html += `<td id="${cellId}" style="text-align: center;">
+              <span class="count-display" style="cursor: pointer;" onclick="startEditCount(${product.id}, ${point.id}, '${escapedProductType}', ${count}, '${cellId}', event)">${count > 0 ? count : ''}</span>
+              <span class="count-edit" style="display: none;">
+                <input type="text" class="count-input" value="${count}" style="width: 60px; margin-right: 5px;">
+                <span class="save-icon" onclick="saveCount(event, ${product.id}, ${point.id}, '${escapedProductType}', '${cellId}')" title="Сохранить" style="cursor: pointer;">✓</span>
+              </span>
+            </td>`;
+          }
+        });
+
+        // Колонка "Поставщик" - показываем только если не включен режим показа для каждой точки
+        if (!showSuppliersPerPoint) {
+          const suppliersSet = new Set();
+          points.forEach(point => {
+            const key = `${product.id}_${point.id}`;
+            const supplierIds = suppliersMap.get(key);
+            if (supplierIds) {
+              supplierIds.forEach(supplierId => {
+                suppliersSet.add(supplierId);
+              });
+            }
+          });
+
+          // Формируем список поставщиков, каждый в своей строке с иконкой редактирования
+          html += '<td style="text-align: left; vertical-align: top;">';
+          if (suppliersSet.size > 0) {
+            const suppliersList = Array.from(suppliersSet);
+            suppliersList.forEach((supplierId, index) => {
+              const supplierName = suppliersNamesMap.get(supplierId);
+              if (supplierName) {
+                html += `<div id="supplier-row-${product.id}-${supplierId}" style="margin-bottom: ${index < suppliersList.length - 1 ? '5px' : '0'}; display: flex; align-items: center; gap: 5px; white-space: nowrap;">`;
+                html += `<span id="supplier-name-${product.id}-${supplierId}">${supplierName}</span>`;
+                html += `<span class="edit-icon" onclick="editProductSupplier(${product.id}, ${supplierId})" title="Редактировать поставщика">✎</span>`;
+                html += `</div>`;
+              }
+            });
+          } else {
+            html += '<span style="color: #999;">—</span>';
+          }
+          html += '</td>';
+        }
+
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      // Устанавливаем адаптивную высоту заголовков на основе самого высокого
+      setTimeout(() => {
+        const headers = container.querySelectorAll('th.vertical-header');
+        if (headers.length > 0) {
+          let maxHeight = 150; // Минимальная высота
+          headers.forEach(header => {
+            // Временно сбрасываем фиксированную высоту для измерения
+            const originalHeight = header.style.height;
+            header.style.height = 'auto';
+            header.style.minHeight = '150px';
+
+            // Получаем реальную высоту элемента
+            const rect = header.getBoundingClientRect();
+            const scrollHeight = header.scrollHeight;
+            const measuredHeight = Math.max(rect.height, scrollHeight);
+
+            if (measuredHeight > maxHeight) {
+              maxHeight = measuredHeight;
+            }
+
+            // Восстанавливаем оригинальную высоту
+            header.style.height = originalHeight;
+          });
+
+          // Устанавливаем одинаковую высоту для всех заголовков с небольшим отступом
+          const finalHeight = Math.max(maxHeight + 10, 150);
+          headers.forEach(header => {
+            header.style.height = finalHeight + 'px';
+            header.style.minHeight = finalHeight + 'px';
+          });
+        }
+      }, 10);
+
+      // Обновляем блок поставщиков для отправки
+      renderSuppliersForSend(productType);
+
+      // Добавляем обработчики событий для input полей
+      setupCountEditHandlers();
+    }
+
+    // Функция для начала редактирования количества
+    function startEditCount(productId, pointId, productType, currentCount, cellId, event) {
+      // Предотвращаем всплытие события, если клик был на input или галочке
+      if (event && (event.target.classList.contains('count-input') || event.target.classList.contains('save-icon'))) {
+        return;
+      }
+
+      const cell = document.getElementById(cellId);
+      if (!cell) return;
+
+      // Если уже редактируется, не начинаем заново
+      const editSpan = cell.querySelector('.count-edit');
+      if (editSpan && editSpan.style.display !== 'none') {
+        return;
+      }
+
+      const displaySpan = cell.querySelector('.count-display');
+      const input = cell.querySelector('.count-input');
+
+      if (!displaySpan || !editSpan || !input) return;
+
+      // Показываем input, скрываем число
+      displaySpan.style.display = 'none';
+      editSpan.style.display = 'inline-flex';
+      input.focus();
+      input.select();
+
+      // Сохраняем исходное значение для отмены
+      input.dataset.originalValue = currentCount || '';
+
+      // Обработчик потери фокуса (отмена редактирования)
+      const handleBlur = (e) => {
+        // Небольшая задержка, чтобы дать время обработать клик на галочку
+        setTimeout(() => {
+          // Проверяем, не был ли клик на галочке
+          const activeElement = document.activeElement;
+          if (activeElement && activeElement.classList.contains('save-icon')) {
+            return;
+          }
+          // Если фокус не на input и не на галочке, отменяем редактирование
+          if (document.activeElement !== input) {
+            cancelEditCount(cellId);
+          }
+        }, 200);
+      };
+
+      // Удаляем старый обработчик, если есть
+      if (input._blurHandler) {
+        input.removeEventListener('blur', input._blurHandler);
+      }
+      // Сохраняем ссылку на обработчик для последующего удаления
+      input._blurHandler = handleBlur;
+      input.addEventListener('blur', handleBlur);
+
+      // Обработчик Enter для сохранения
+      const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveCount(e, productId, pointId, productType, cellId);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelEditCount(cellId);
+        }
+      };
+
+      if (input._keyPressHandler) {
+        input.removeEventListener('keypress', input._keyPressHandler);
+      }
+      input._keyPressHandler = handleKeyPress;
+      input.addEventListener('keypress', handleKeyPress);
+    }
+
+    // Функция для сохранения количества
+    async function saveCount(event, productId, pointId, productType, cellId) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+
+      const cell = document.getElementById(cellId);
+      if (!cell) return;
+
+      const input = cell.querySelector('.count-input');
+      const displaySpan = cell.querySelector('.count-display');
+      const editSpan = cell.querySelector('.count-edit');
+
+      if (!input || !displaySpan || !editSpan) return;
+
+      // Обрабатываем ввод: заменяем запятую на точку для корректного парсинга
+      let inputValue = input.value.trim();
+      // Заменяем запятую на точку (поддержка русской локали)
+      inputValue = inputValue.replace(/,/g, '.');
+      // Удаляем все символы кроме цифр и точки (оставляем только одно число)
+      // Разрешаем только одну точку для десятичной части
+      const parts = inputValue.split('.');
+      if (parts.length > 2) {
+        // Если несколько точек, оставляем только первую
+        inputValue = parts[0] + '.' + parts.slice(1).join('');
+      }
+      // Удаляем все нецифровые символы кроме точки
+      inputValue = inputValue.replace(/[^\d.]/g, '');
+      // Если пустое значение, считаем как 0
+      const newCount = inputValue === '' || inputValue === '.' ? 0 : parseFloat(inputValue) || 0;
+
+      try {
+        // Отправляем запрос на сервер
+        const response = await fetch('/order-items/update-count', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            product_id: productId,
+            point_id: pointId,
+            product_type: productType,
+            new_count: newCount
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка при сохранении');
+        }
+
+        const result = await response.json();
+
+        // Обновляем отображаемое значение
+        displaySpan.textContent = newCount > 0 ? newCount : '';
+
+        // Скрываем input, показываем число
+        editSpan.style.display = 'none';
+        displaySpan.style.display = 'inline-block';
+
+        // Удаляем обработчики
+        if (input._blurHandler) {
+          input.removeEventListener('blur', input._blurHandler);
+          delete input._blurHandler;
+        }
+        if (input._keyPressHandler) {
+          input.removeEventListener('keypress', input._keyPressHandler);
+          delete input._keyPressHandler;
+        }
+
+        // Обновляем данные через /orders/pending-supplier
+        await refreshExportData();
+
+      } catch (error) {
+        alert('Ошибка при сохранении: ' + error.message);
+        // В случае ошибки возвращаем исходное значение
+        cancelEditCount(cellId);
+      }
+    }
+
+    // Функция для отмены редактирования
+    function cancelEditCount(cellId) {
+      const cell = document.getElementById(cellId);
+      if (!cell) return;
+
+      const displaySpan = cell.querySelector('.count-display');
+      const editSpan = cell.querySelector('.count-edit');
+      const input = cell.querySelector('.count-input');
+
+      if (!displaySpan || !editSpan || !input) return;
+
+      // Восстанавливаем исходное значение
+      const originalValue = input.dataset.originalValue || '';
+      input.value = originalValue;
+
+      // Скрываем input, показываем число
+      editSpan.style.display = 'none';
+      displaySpan.style.display = 'inline-block';
+
+      // Удаляем обработчики
+      if (input._blurHandler) {
+        input.removeEventListener('blur', input._blurHandler);
+        delete input._blurHandler;
+      }
+      if (input._keyPressHandler) {
+        input.removeEventListener('keypress', input._keyPressHandler);
+        delete input._keyPressHandler;
+      }
+    }
+
+    // Функция для настройки обработчиков событий
+    function setupCountEditHandlers() {
+      // Обработчики уже настроены в startEditCount
+      // Эта функция может быть использована для дополнительной настройки
+    }
+
+    // Функция для обновления данных экспорта
+    async function refreshExportData() {
+      try {
+        // Загружаем обновленные данные заказов
+        const ordersResponse = await fetch('/orders/pending-supplier');
+        if (ordersResponse.ok) {
+          window.exportPendingOrders = await ordersResponse.json();
+
+          // Обновляем таблицу, если есть активный тип товара
+          if (selectedProductType) {
+            renderExportPreview(selectedProductType);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при обновлении данных:', error);
+      }
+    }
+
+    // Функция для отображения поставщиков для отправки
+    function renderSuppliersForSend(productType) {
+      const container = document.getElementById('suppliers-send-container');
+      if (!container) return;
+
+      if (!productType || !window.exportPendingOrders || !window.exportSuppliers) {
+        container.style.display = 'none';
+        return;
+      }
+
+      // Собираем уникальных поставщиков для данного типа продукта
+      const suppliersSet = new Set();
+      window.exportPendingOrders.forEach(order => {
+        if (!order.items) return;
+        order.items.forEach(item => {
+          if (item.type && item.type.toLowerCase() === productType.toLowerCase() && item.suppliers_id) {
+            suppliersSet.add(item.suppliers_id);
+          }
+        });
+      });
+
+      if (suppliersSet.size === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      // Создаем карту поставщиков для быстрого доступа
+      const suppliersMap = new Map();
+      window.exportSuppliers.forEach(supplier => {
+        suppliersMap.set(supplier.id, supplier);
+      });
+
+      // Формируем HTML для каждого поставщика
+      let html = '';
+      suppliersSet.forEach(supplierId => {
+        const supplier = suppliersMap.get(supplierId);
+        if (!supplier) return;
+
+        html += `<div class="supplier-send-block">`;
+        html += `<span class="supplier-name">${supplier.name || 'Поставщик #' + supplier.id}</span>`;
+        html += `<div class="send-buttons">`;
+
+        // Показываем кнопки только для доступных способов связи
+        if (supplier.available_contacts && supplier.available_contacts.includes('email')) {
+          html += `<button class="send-btn" onclick="sendToEmail(${supplier.id})">Отправить на почту</button>`;
+        }
+        if (supplier.available_contacts && supplier.available_contacts.includes('telegram')) {
+          html += `<button class="send-btn" onclick="sendToTelegram(${supplier.id})">Отправить в телеграм</button>`;
+        }
+
+        html += `</div>`;
+        html += `</div>`;
+      });
+
+      container.innerHTML = html;
+      container.style.display = 'flex';
+    }
+
+    // Функции для отправки
+    async function sendToEmail(supplierId) {
+      if (!selectedProductType) {
+        alert('Выберите тип товара для отправки');
+        return;
+      }
+
+      if (!confirm(`Отправить заявку поставщику на email?`)) {
+        return;
+      }
+
+      try {
+        // Отправляем запрос на backend
+        const response = await fetch('/send/supplier-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            supplier_id: supplierId,
+            product_type: selectedProductType
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка при отправке заявки');
+        }
+
+        const result = await response.json();
+        alert(result.message || 'Заявка успешно отправлена на email');
+
+        // Обновляем данные и перерисовываем таблицу
+        await loadExportData();
+
+        // Находим активную кнопку export-btn
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          renderExportPreview(selectedProductType);
+          renderSuppliersForSend(selectedProductType);
+        }
+
+      } catch (error) {
+        console.error('Ошибка при отправке на email:', error);
+        alert('Не удалось отправить заявку: ' + error.message);
+      }
+    }
+
+    async function sendToTelegram(supplierId) {
+      if (!selectedProductType) {
+        alert('Выберите тип товара для отправки');
+        return;
+      }
+
+      if (!confirm(`Отправить заявку поставщику через Telegram?`)) {
+        return;
+      }
+
+      try {
+        // Отправляем запрос на backend
+        const response = await fetch('/send/supplier-telegram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            supplier_id: supplierId,
+            product_type: selectedProductType
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка при отправке заявки');
+        }
+
+        const result = await response.json();
+
+        // Если статус "sending" - запускаем периодическую проверку статуса
+        if (result.status === 'sending') {
+          alert(result.message || 'Заявка отправляется. Ожидание подтверждения...');
+
+          // Запускаем периодическую проверку статуса
+          checkSendingStatus(result.item_ids, supplierId);
+        } else {
+          alert(result.message || 'Заявка успешно отправлена');
+        }
+
+        // Обновляем данные и перерисовываем таблицу
+        await loadExportData();
+
+        // Находим активную кнопку export-btn
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          // Обновляем таблицу с текущим типом товара
+          renderExportPreview(selectedProductType);
+          // Обновляем блок поставщиков для отправки
+          renderSuppliersForSend(selectedProductType);
+        }
+      } catch (error) {
+        console.error('Ошибка при отправке заявки:', error);
+        alert(`Не удалось отправить заявку: ${error.message}`);
+      }
+    }
+
+    // Функция для периодической проверки статуса отправки
+    async function checkSendingStatus(itemIds, supplierId, attempts = 0, maxAttempts = 60) {
+      // Максимум 60 попыток (5 минут при интервале 5 секунд)
+      if (attempts >= maxAttempts) {
+        alert('Превышено время ожидания подтверждения отправки. Проверьте статус вручную.');
+        await loadExportData();
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          renderExportPreview(selectedProductType);
+          renderSuppliersForSend(selectedProductType);
+        }
+        return;
+      }
+
+      try {
+        // Проверяем статус элементов заказа через API заказов
+        const response = await fetch('/orders/pending-supplier');
+        if (!response.ok) return;
+
+        const orders = await response.json();
+
+        // Проверяем статус каждого item_id
+        let foundItems = 0;
+        let sentItems = 0;
+        let sendingItems = 0;
+
+        for (const order of orders) {
+          if (!order.items) continue;
+          for (const item of order.items) {
+            if (itemIds.includes(item.id)) {
+              foundItems++;
+              if (item.is_sent_to_supplier) {
+                sentItems++;
+              } else if (item.is_sending_to_supplier) {
+                sendingItems++;
+              }
+            }
+          }
+        }
+
+        // Если все найдены и отправлены - успех
+        if (foundItems === itemIds.length && sentItems === itemIds.length) {
+          alert('Заявка успешно отправлена поставщику!');
+          await loadExportData();
+          const activeBtn = document.querySelector('.export-btn.active');
+          if (activeBtn && selectedProductType) {
+            renderExportPreview(selectedProductType);
+            renderSuppliersForSend(selectedProductType);
+          }
+          return;
+        }
+
+        // Если все найдены, но ни один не отправляется и не отправлен - ошибка
+        if (foundItems === itemIds.length && sentItems === 0 && sendingItems === 0) {
+          alert('Произошла ошибка при отправке заявки. Попробуйте отправить вручную.');
+          await loadExportData();
+          const activeBtn = document.querySelector('.export-btn.active');
+          if (activeBtn && selectedProductType) {
+            renderExportPreview(selectedProductType);
+            renderSuppliersForSend(selectedProductType);
+          }
+          return;
+        }
+
+        // Продолжаем проверку через 5 секунд
+        setTimeout(() => {
+          checkSendingStatus(itemIds, supplierId, attempts + 1, maxAttempts);
+        }, 5000);
+
+      } catch (error) {
+        console.error('Ошибка при проверке статуса:', error);
+        // Продолжаем проверку даже при ошибке
+        setTimeout(() => {
+          checkSendingStatus(itemIds, supplierId, attempts + 1, maxAttempts);
+        }, 5000);
+      }
+    }
+
+    // Функция для редактирования поставщика товара
+    function editProductSupplier(productId, supplierId) {
+      const rowId = `supplier-row-${productId}-${supplierId}`;
+      const nameId = `supplier-name-${productId}-${supplierId}`;
+      const row = document.getElementById(rowId);
+      const nameSpan = document.getElementById(nameId);
+
+      if (!row || !nameSpan) return;
+
+      // Проверяем, не находимся ли мы уже в режиме редактирования
+      const select = row.querySelector('select');
+      if (select) {
+        // Уже в режиме редактирования, отменяем редактирование
+        cancelEditProductSupplier(productId, supplierId);
+        return;
+      }
+
+      // Получаем текущее название поставщика
+      const currentName = nameSpan.textContent;
+
+      // Создаем селект с поставщиками
+      const selectElement = document.createElement('select');
+      selectElement.id = `supplier-select-${productId}-${supplierId}`;
+      selectElement.style.marginRight = '5px';
+
+      // Заполняем селект поставщиками
+      if (window.exportSuppliers && window.exportSuppliers.length > 0) {
+        window.exportSuppliers.forEach(supplier => {
+          const option = document.createElement('option');
+          option.value = supplier.id;
+          option.textContent = supplier.name;
+          if (supplier.id === supplierId) {
+            option.selected = true;
+          }
+          selectElement.appendChild(option);
+        });
+      }
+
+      // Создаем иконку сохранения
+      const saveIcon = document.createElement('span');
+      saveIcon.className = 'save-icon';
+      saveIcon.title = 'Сохранить';
+      saveIcon.textContent = '✓';
+      saveIcon.onclick = () => saveProductSupplier(productId, supplierId, selectElement.value);
+
+      // Заменяем название на селект и иконку редактирования на иконку сохранения
+      nameSpan.style.display = 'none';
+      const editIcon = row.querySelector('.edit-icon');
+      if (editIcon) {
+        editIcon.style.display = 'none';
+      }
+
+      row.insertBefore(selectElement, nameSpan);
+      row.appendChild(saveIcon);
+    }
+
+    // Функция для сохранения измененного поставщика
+    async function saveProductSupplier(productId, oldSupplierId, newSupplierId) {
+      const newSupplierIdInt = parseInt(newSupplierId);
+      const oldSupplierIdInt = parseInt(oldSupplierId);
+
+      if (newSupplierIdInt === oldSupplierIdInt) {
+        // Поставщик не изменился, просто отменяем редактирование
+        cancelEditProductSupplier(productId, oldSupplierId);
+        return;
+      }
+
+      try {
+        // Отправляем PATCH запрос
+        const response = await fetch(
+          `/order-items/update-supplier?product_id=${productId}&old_supplier_id=${oldSupplierIdInt}&new_supplier_id=${newSupplierIdInt}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка при обновлении поставщика');
+        }
+
+        const result = await response.json();
+        console.log('Поставщик обновлен:', result);
+
+        // Обновляем данные и перерисовываем таблицу
+        await loadExportData();
+
+        // Находим активную кнопку export-btn
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          // Обновляем таблицу с текущим типом товара
+          renderExportPreview(selectedProductType);
+          // Обновляем блок поставщиков для отправки
+          renderSuppliersForSend(selectedProductType);
+        }
+      } catch (error) {
+        console.error('Ошибка при сохранении поставщика:', error);
+        alert(`Не удалось обновить поставщика: ${error.message}`);
+      }
+    }
+
+    // Функция для отмены редактирования поставщика
+    function cancelEditProductSupplier(productId, supplierId) {
+      const rowId = `supplier-row-${productId}-${supplierId}`;
+      const nameId = `supplier-name-${productId}-${supplierId}`;
+      const row = document.getElementById(rowId);
+      const nameSpan = document.getElementById(nameId);
+
+      if (!row || !nameSpan) return;
+
+      // Удаляем селект и иконку сохранения
+      const select = row.querySelector('select');
+      const saveIcon = row.querySelector('.save-icon');
+
+      if (select) select.remove();
+      if (saveIcon) saveIcon.remove();
+
+      // Показываем название и иконку редактирования
+      nameSpan.style.display = '';
+      const editIcon = row.querySelector('.edit-icon');
+      if (editIcon) {
+        editIcon.style.display = '';
+      }
+    }
+
+    // Функция для редактирования поставщика товара для конкретной точки
+    function editProductSupplierPoint(productId, pointId, supplierId) {
+      const rowId = `supplier-row-${productId}-${pointId}-${supplierId}`;
+      const nameId = `supplier-name-${productId}-${pointId}-${supplierId}`;
+      const row = document.getElementById(rowId);
+      const nameSpan = document.getElementById(nameId);
+
+      if (!row || !nameSpan) return;
+
+      // Проверяем, не находимся ли мы уже в режиме редактирования
+      const select = row.querySelector('select');
+      if (select) {
+        // Уже в режиме редактирования, отменяем редактирование
+        cancelEditProductSupplierPoint(productId, pointId, supplierId);
+        return;
+      }
+
+      // Получаем текущее название поставщика
+      const currentName = nameSpan.textContent;
+
+      // Создаем селект с поставщиками
+      const selectElement = document.createElement('select');
+      selectElement.id = `supplier-select-${productId}-${pointId}-${supplierId}`;
+      selectElement.style.marginRight = '5px';
+
+      // Заполняем селект поставщиками
+      if (window.exportSuppliers && window.exportSuppliers.length > 0) {
+        window.exportSuppliers.forEach(supplier => {
+          const option = document.createElement('option');
+          option.value = supplier.id;
+          option.textContent = supplier.name;
+          if (supplier.id === supplierId) {
+            option.selected = true;
+          }
+          selectElement.appendChild(option);
+        });
+      }
+
+      // Создаем иконку сохранения
+      const saveIcon = document.createElement('span');
+      saveIcon.className = 'save-icon';
+      saveIcon.title = 'Сохранить';
+      saveIcon.textContent = '✓';
+      saveIcon.onclick = () => saveProductSupplierPoint(productId, pointId, supplierId, selectElement.value);
+
+      // Заменяем название на селект и иконку редактирования на иконку сохранения
+      nameSpan.style.display = 'none';
+      const editIcon = row.querySelector('.edit-icon');
+      if (editIcon) {
+        editIcon.style.display = 'none';
+      }
+
+      row.insertBefore(selectElement, nameSpan);
+      row.appendChild(saveIcon);
+    }
+
+    // Функция для сохранения измененного поставщика для конкретной точки
+    async function saveProductSupplierPoint(productId, pointId, oldSupplierId, newSupplierId) {
+      const newSupplierIdInt = parseInt(newSupplierId);
+      const oldSupplierIdInt = parseInt(oldSupplierId);
+
+      if (newSupplierIdInt === oldSupplierIdInt) {
+        // Поставщик не изменился, просто отменяем редактирование
+        cancelEditProductSupplierPoint(productId, pointId, oldSupplierId);
+        return;
+      }
+
+      try {
+        // Отправляем PATCH запрос
+        const response = await fetch(
+          `/order-items/update-supplier-point?product_id=${productId}&point_id=${pointId}&old_supplier_id=${oldSupplierIdInt}&new_supplier_id=${newSupplierIdInt}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка при обновлении поставщика');
+        }
+
+        const result = await response.json();
+        console.log('Поставщик обновлен:', result);
+
+        // Обновляем данные и перерисовываем таблицу
+        await loadExportData();
+
+        // Находим активную кнопку export-btn
+        const activeBtn = document.querySelector('.export-btn.active');
+        if (activeBtn && selectedProductType) {
+          // Обновляем таблицу с текущим типом товара
+          renderExportPreview(selectedProductType);
+          // Обновляем блок поставщиков для отправки
+          renderSuppliersForSend(selectedProductType);
+        }
+      } catch (error) {
+        console.error('Ошибка при сохранении поставщика:', error);
+        alert(`Не удалось обновить поставщика: ${error.message}`);
+      }
+    }
+
+    // Функция для отмены редактирования поставщика для конкретной точки
+    function cancelEditProductSupplierPoint(productId, pointId, supplierId) {
+      const rowId = `supplier-row-${productId}-${pointId}-${supplierId}`;
+      const nameId = `supplier-name-${productId}-${pointId}-${supplierId}`;
+      const row = document.getElementById(rowId);
+      const nameSpan = document.getElementById(nameId);
+
+      if (!row || !nameSpan) return;
+
+      // Удаляем селект и иконку сохранения
+      const select = row.querySelector('select');
+      const saveIcon = row.querySelector('.save-icon');
+
+      if (select) select.remove();
+      if (saveIcon) saveIcon.remove();
+
+      // Показываем название и иконку редактирования
+      nameSpan.style.display = '';
+      const editIcon = row.querySelector('.edit-icon');
+      if (editIcon) {
+        editIcon.style.display = '';
+      }
+    }
+
+    // Функция для экспорта таблицы выгрузки в Excel из JSON данных
+    async function exportExportToExcel(productType) {
+      try {
+        if (!window.exportProducts || !window.exportPendingOrders) {
+          alert('Данные не загружены. Нажмите "Обновить".');
+          return;
+        }
+
+        // Сначала собираем все product_id из заказов для данного типа товара
+        const productsInOrders = new Set();
+        const dataMap = new Map();
+        const pointsWithOrders = new Set(); // Точки, у которых есть заказы с товарами данного типа
+
+        window.exportPendingOrders.forEach(order => {
+          if (!order.point) return;
+
+          order.items.forEach(item => {
+            if (item.type && item.type.toLowerCase() === productType.toLowerCase() && item.product_id) {
+              // Добавляем product_id в список товаров, которые есть в заказах
+              productsInOrders.add(item.product_id);
+              // Добавляем точку в список, если есть товары данного типа
+              pointsWithOrders.add(order.point.id);
+
+              const key = `${item.product_id}_${order.point.id}`;
+              if (!dataMap.has(key)) {
+                dataMap.set(key, {
+                  product_id: item.product_id,
+                  point_id: order.point.id,
+                  count: 0
+                });
+              }
+              dataMap.get(key).count += item.count || 0;
+            }
+          });
+        });
+
+        // Фильтруем товары: только те, которые есть в заказах и соответствуют типу
+        const filteredProducts = window.exportProducts.filter(p =>
+          p.id && productsInOrders.has(p.id) &&
+          p.product_type && p.product_type.toLowerCase() === productType.toLowerCase()
+        );
+
+        if (filteredProducts.length === 0) {
+          alert('Нет товаров данного типа в заказах для экспорта');
+          return;
+        }
+
+        // Собираем только те точки, у которых есть заказы с товарами данного типа
+        const pointsMap = new Map();
+        window.exportPendingOrders.forEach(order => {
+          if (order.point && order.point.id && pointsWithOrders.has(order.point.id)) {
+            if (!pointsMap.has(order.point.id)) {
+              pointsMap.set(order.point.id, {
+                name: order.point.name,
+                owner: order.point.owner || null
+              });
+            }
+          }
+        });
+
+        // Сортируем точки по owner, затем по name
+        const points = Array.from(pointsMap.entries())
+          .map(([id, data]) => ({ id, name: data.name, owner: data.owner || '' }))
+          .sort((a, b) => {
+            // Сначала сортируем по owner
+            if (a.owner !== b.owner) {
+              return a.owner.localeCompare(b.owner);
+            }
+            // Если owner одинаковый, сортируем по name
+            return a.name.localeCompare(b.name);
+          });
+
+        if (points.length === 0) {
+          alert('Нет точек с заказами для данного типа товара');
+          return;
+        }
+
+        // Формируем данные для Excel
+        const worksheetData = [];
+
+        // Заголовки: первая колонка - "Товар", остальные - названия точек, последняя - "Всего"
+        const headerRow = ['Товар'];
+        points.forEach(point => {
+          headerRow.push(point.name);
+        });
+        headerRow.push('Всего');
+        worksheetData.push(headerRow);
+
+        // Строки с товарами
+        filteredProducts.forEach(product => {
+          const row = [];
+          // Первая колонка: название + единица измерения
+          const productName = `${product.name}${product.unit ? ', ' + product.unit : ''}`;
+          row.push(productName);
+
+          let total = 0; // Сумма по всем точкам
+
+          // Колонки для каждой точки
+          points.forEach(point => {
+            const key = `${product.id}_${point.id}`;
+            const data = dataMap.get(key);
+            const count = data ? data.count : 0;
+            if (count) total += count;
+            row.push(count || '');
+          });
+
+          // Колонка "Всего"
+          row.push(total || '');
+
+          worksheetData.push(row);
+        });
+
+        // Создаем workbook и worksheet без стилей
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+        // Добавляем worksheet в workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Выгрузка');
+
+        // Генерируем файл без стилей
+        const wbout = XLSX.write(wb, {
+          bookType: 'xlsx',
+          type: 'array'
+        });
+
+        // Создаем blob и скачиваем
+        const blob = new Blob([wbout], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Формируем имя файла на основе типа товара и текущей даты
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const safeProductType = productType.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+        a.download = `export_${safeProductType}_${dateStr}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+        alert('Не удалось экспортировать в Excel');
+      }
+    }
+
+
+    // ==== Suppliers ====
+    let editingSupplierId = null; // ID поставщика, который сейчас редактируется
+    let expandedSuppliers = new Set(); // Множество ID поставщиков с раскрытым списком товаров
+    let editingRuleId = null; // ID правила, которое сейчас редактируется
+
+    document.getElementById('tab-suppliers').onclick = () => switchTab('suppliers');
+
+    // Функция для сохранения состояния форм перед обновлением
+    function saveSupplierFormsState() {
+      const state = {
+        suppliers: {},
+        mainTable: null,
+        editingRuleId: editingRuleId // Сохраняем ID редактируемого правила
+      };
+
+      // Сохраняем состояние чекбоксов основной таблицы поставщиков
+      state.mainTable = saveCheckboxesState('suppliers-table', 'select-all-suppliers');
+
+      // Сохраняем значения всех форм правил и чекбоксы товаров поставщика
+      document.querySelectorAll('[id^="supplier-rule-text-"], [id^="supplier-rule-priority-"], [id^="supplier-rule-active-"], [id^="available-products-select-"]').forEach(el => {
+        const supplierId = el.id.match(/\d+/)?.[0];
+        if (supplierId) {
+          if (!state.suppliers[supplierId]) state.suppliers[supplierId] = {};
+          if (el.id.startsWith('supplier-rule-text-')) {
+            state.suppliers[supplierId].ruleText = el.value;
+          } else if (el.id.startsWith('supplier-rule-priority-')) {
+            state.suppliers[supplierId].priority = el.value;
+          } else if (el.id.startsWith('supplier-rule-active-')) {
+            state.suppliers[supplierId].isActive = el.checked;
+          } else if (el.id.startsWith('available-products-select-')) {
+            state.suppliers[supplierId].selectedProduct = el.value;
+            state.suppliers[supplierId].selectLoaded = el.dataset.loaded || '';
+          }
+        }
+      });
+
+      // Сохраняем состояние чекбоксов товаров для каждого поставщика
+      document.querySelectorAll('[id^="supplier-products-table-"]').forEach(tbody => {
+        const supplierId = tbody.id.match(/\d+/)?.[0];
+        if (supplierId) {
+          if (!state.suppliers[supplierId]) state.suppliers[supplierId] = {};
+          state.suppliers[supplierId].productsCheckboxes = saveCheckboxesState(
+            `supplier-products-table-${supplierId}`,
+            `select-all-products-${supplierId}`
+          );
+        }
+      });
+
+      // Сохраняем состояние чекбоксов правил для каждого поставщика
+      document.querySelectorAll('[id^="supplier-rules-table-"]').forEach(tbody => {
+        const supplierId = tbody.id.match(/\d+/)?.[0];
+        if (supplierId) {
+          if (!state.suppliers[supplierId]) state.suppliers[supplierId] = {};
+          state.suppliers[supplierId].rulesCheckboxes = saveCheckboxesState(
+            `supplier-rules-table-${supplierId}`,
+            `select-all-rules-${supplierId}`
+          );
+        }
+      });
+
+      return state;
+    }
+
+    // Функция для восстановления состояния форм после обновления
+    function restoreSupplierFormsState(state) {
+      if (!state) return;
+
+      // Восстанавливаем состояние чекбоксов основной таблицы поставщиков
+      if (state.mainTable) {
+        restoreCheckboxesState('suppliers-table', 'select-all-suppliers', state.mainTable);
+      }
+
+      // Восстанавливаем состояние форм и чекбоксов товаров для каждого поставщика
+      Object.keys(state.suppliers || {}).forEach(supplierId => {
+        const s = state.suppliers[supplierId];
+        const ruleTextEl = document.getElementById(`supplier-rule-text-${supplierId}`);
+        const priorityEl = document.getElementById(`supplier-rule-priority-${supplierId}`);
+        const isActiveEl = document.getElementById(`supplier-rule-active-${supplierId}`);
+        const selectEl = document.getElementById(`available-products-select-${supplierId}`);
+
+        if (ruleTextEl && s.ruleText !== undefined) ruleTextEl.value = s.ruleText;
+        if (priorityEl && s.priority !== undefined) priorityEl.value = s.priority;
+        if (isActiveEl && s.isActive !== undefined) isActiveEl.checked = s.isActive;
+        if (selectEl) {
+          if (s.selectLoaded !== undefined) {
+            selectEl.dataset.loaded = s.selectLoaded;
+          }
+          // Восстанавливаем выбранное значение после загрузки опций
+          if (s.selectedProduct !== undefined && s.selectedProduct) {
+            // Если опции еще не загружены, загружаем их сначала
+            if (!selectEl.dataset.loaded || selectEl.dataset.loaded === '') {
+              loadAvailableProducts(supplierId).then(() => {
+                // После загрузки опций восстанавливаем значение
+                const restoredSelect = document.getElementById(`available-products-select-${supplierId}`);
+                if (restoredSelect && s.selectedProduct) {
+                  restoredSelect.value = s.selectedProduct;
+                }
+              });
+            } else {
+              // Если опции уже загружены, просто восстанавливаем значение
+              setTimeout(() => {
+                const restoredSelect = document.getElementById(`available-products-select-${supplierId}`);
+                if (restoredSelect && s.selectedProduct) {
+                  restoredSelect.value = s.selectedProduct;
+                }
+              }, 50);
+            }
+          }
+        }
+
+        // Восстанавливаем состояние чекбоксов товаров поставщика
+        if (s.productsCheckboxes) {
+          restoreCheckboxesState(
+            `supplier-products-table-${supplierId}`,
+            `select-all-products-${supplierId}`,
+            s.productsCheckboxes
+          );
+        }
+
+        // Восстанавливаем состояние чекбоксов правил поставщика
+        if (s.rulesCheckboxes) {
+          restoreCheckboxesState(
+            `supplier-rules-table-${supplierId}`,
+            `select-all-rules-${supplierId}`,
+            s.rulesCheckboxes
+          );
+        }
+      });
+    }
+
+    async function fetchSuppliers() {
+      try {
+        // Сохраняем состояние форм перед обновлением
+        const formsState = saveSupplierFormsState();
+
+        const res = await fetch('/suppliers');
+        if (!res.ok) throw new Error('Ошибка загрузки поставщиков');
+        const suppliers = await res.json();
+        const tbody = document.getElementById('suppliers-table');
+        tbody.innerHTML = '';
+
+        if (suppliers.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Нет поставщиков для отображения</td></tr>';
+          return;
+        }
+
+        suppliers.forEach(s => {
+          const isEditing = editingSupplierId === s.id;
+          const productsVisible = expandedSuppliers.has(s.id);
+          tbody.innerHTML += `
+            <tr id="supplier-row-${s.id}" class="${isEditing ? 'editing-row' : ''}">
+          <td><input type="checkbox" value="${s.id}"></td>
+              <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${s.name ?? ''}" data-field="name">` : (s.name ?? '-')}</td>
+              <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${s.email ?? ''}" data-field="email">` : (s.email ?? '-')}</td>
+              <td class="${isEditing ? 'editable-cell' : ''}">${isEditing ? `<input type="text" value="${s.telegram ?? ''}" data-field="telegram">` : (s.telegram ?? '-')}</td>
+              <td style="text-align: center;">${s.has_telegram_id ? '✓' : '—'}</td>
+              <td>
+                ${isEditing
+              ? `<span class="save-icon" onclick="saveSupplier(${s.id})" title="Сохранить">✓</span>`
+              : `<span class="edit-icon" onclick="editSupplier(${s.id})" title="Редактировать">✎</span>`
+            }
+                ${!isEditing ? `<span class="products-icon" onclick="toggleSupplierProducts(${s.id})" title="Показать товары">📦</span>` : ''}
+              </td>
+            </tr>
+            <tr id="supplier-products-row-${s.id}" class="supplier-products-row ${productsVisible ? 'visible' : ''}">
+              <td colspan="7">
+                <div id="supplier-products-block-${s.id}" class="supplier-products-block">
+                  <div class="supplier-products-header">Товары поставщика</div>
+                  <div id="supplier-products-list-${s.id}" class="supplier-products-list">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th><input type="checkbox" id="select-all-products-${s.id}" onchange="toggleAllSupplierProducts(${s.id}, this)"></th>
+                          <th>ID</th>
+                          <th>Название</th>
+                          <th>Единица измерения</th>
+                        </tr>
+                      </thead>
+                      <tbody id="supplier-products-table-${s.id}">
+                        ${s.products && s.products.length > 0
+              ? s.products.map(p => `
+                            <tr id="supplier-product-row-${s.id}-${p.id}">
+                              <td><input type="checkbox" value="${p.id}"></td>
+                              <td>${p.id}</td>
+                              <td>${p.name}</td>
+                              <td>${p.unit || '-'}</td>
+                            </tr>
+                          `).join('')
+              : '<tr><td colspan="4" style="text-align: center;">Нет привязанных товаров</td></tr>'
+            }
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="add-product-section">
+                    <label>Добавить товар: </label>
+                    <select id="available-products-select-${s.id}" onfocus="handleProductSelectChange(${s.id})">
+                      <option value="">-- Выберите товар --</option>
+                    </select>
+                    <button type="submit" onclick="linkProduct(${s.id}); return false;">Привязать</button>
+                    <button type="button" onclick="unlinkSelectedProducts(${s.id})">Отвязать выбранные</button>
+                  </div>
+                  
+                  <div class="supplier-rules-section">
+                    <div class="supplier-products-header">Правила выбора поставщика</div>
+                    <div class="supplier-rules-list">
+                      ${s.rules && s.rules.length > 0
+              ? `<table>
+                            <thead>
+                              <tr>
+                                <th><input type="checkbox" id="select-all-rules-${s.id}" onchange="toggleAllSupplierRules(${s.id}, this)"></th>
+                                <th>Текст правила</th>
+                                <th>Приоритет</th>
+                                <th>Активно</th>
+                                <th>Действия</th>
+                              </tr>
+                            </thead>
+                            <tbody id="supplier-rules-table-${s.id}">
+                              ${s.rules.map(r => {
+                const isEditing = editingRuleId === r.id;
+                return `
+                                  <tr id="supplier-rule-row-${s.id}-${r.id}" class="${isEditing ? 'supplier-rule-editing' : ''}">
+                                    <td><input type="checkbox" value="${r.id}"></td>
+                                    <td class="supplier-rule-text">
+                                      ${isEditing
+                    ? `<textarea id="edit-rule-text-${s.id}-${r.id}" rows="2">${r.rule_text || ''}</textarea>`
+                    : (r.rule_text || '-')
+                  }
+                                    </td>
+                                    <td>
+                                      ${isEditing
+                    ? `<input type="number" id="edit-rule-priority-${s.id}-${r.id}" value="${r.priority || 100}" min="0">`
+                    : (r.priority || 100)
+                  }
+                                    </td>
+                                    <td>
+                                      ${isEditing
+                    ? `<input type="checkbox" id="edit-rule-active-${s.id}-${r.id}" ${r.is_active ? 'checked' : ''}>`
+                    : (r.is_active ? 'Да' : 'Нет')
+                  }
+                                    </td>
+                                    <td class="supplier-rule-actions">
+                                      ${isEditing
+                    ? `<span class="save-icon" onclick="saveSupplierRule(${s.id}, ${r.id})" title="Сохранить">✓</span>
+                                           <span class="delete-icon" onclick="cancelEditSupplierRule(${s.id}, ${r.id})" title="Отмена">✕</span>`
+                    : `<span class="edit-icon" onclick="editSupplierRule(${s.id}, ${r.id})" title="Редактировать">✎</span>`
+                  }
+                                    </td>
+                                  </tr>
+                                `;
+              }).join('')}
+                            </tbody>
+                          </table>`
+              : '<p style="text-align: center; color: #888;">Нет правил</p>'
+            }
+                    </div>
+                    <form id="supplier-rules-form-${s.id}" onsubmit="addSupplierRule(${s.id}); return false;">
+                      <textarea id="supplier-rule-text-${s.id}" placeholder="Текст правила с маркерами [PRODUCT:id]" rows="2" required></textarea>
+                      <input type="number" id="supplier-rule-priority-${s.id}" placeholder="Приоритет" value="100" min="0">
+                      <label>
+                        <input type="checkbox" id="supplier-rule-active-${s.id}" checked>
+                        Активно
+                      </label>
+                      <button type="submit">Добавить</button>
+                      <button type="button" onclick="deleteSelectedSupplierRules(${s.id})">Удалить выбранные</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+        </tr>
+      `;
+        });
+
+        // Восстанавливаем состояние форм после обновления
+        restoreSupplierFormsState(formsState);
+
+        // Восстанавливаем ID редактируемого правила
+        if (formsState && formsState.editingRuleId !== undefined) {
+          editingRuleId = formsState.editingRuleId;
+        }
+      } catch (err) {
+        console.error("Ошибка при загрузке поставщиков:", err);
+        alert("Не удалось загрузить поставщиков: " + err.message);
+      }
+    }
+
+    function editSupplier(supplierId) {
+      // Если уже редактируется другой поставщик - переключаемся
+      if (editingSupplierId !== null && editingSupplierId !== supplierId) {
+        editingSupplierId = supplierId;
+        fetchSuppliers();
+        return;
+      }
+
+      editingSupplierId = supplierId;
+      fetchSuppliers();
+    }
+
+    async function saveSupplier(supplierId) {
+      const row = document.getElementById(`supplier-row-${supplierId}`);
+      if (!row) return;
+
+      // Собираем данные из input полей
+      const inputs = row.querySelectorAll('input[data-field]');
+      const data = {};
+
+      inputs.forEach(input => {
+        const field = input.getAttribute('data-field');
+        const value = input.value.trim();
+        data[field] = value || null;
+      });
+
+      // Проверяем обязательные поля (name должен быть заполнен)
+      if (!data.name) {
+        alert('Название поставщика обязательно для заполнения');
+        return;
+      }
+
+      try {
+        // Отправляем PATCH запрос
+        const res = await fetch(`/suppliers/${supplierId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          // Проверяем Content-Type перед парсингом JSON
+          const contentType = res.headers.get('content-type');
+          let errorMessage = 'Ошибка при обновлении поставщика';
+
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const error = await res.json();
+              errorMessage = error.detail || error.message || errorMessage;
+            } catch (e) {
+              errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            }
+          } else {
+            // Если не JSON, читаем как текст
+            const text = await res.text();
+            errorMessage = `Ошибка ${res.status}: ${res.statusText}`;
+            if (text && text.length < 200) {
+              errorMessage += ` - ${text}`;
+            }
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        // Выходим из режима редактирования
+        editingSupplierId = null;
+
+        // Обновляем данные
+        await fetchSuppliers();
+      } catch (error) {
+        alert('Ошибка при сохранении поставщика: ' + error.message);
+      }
+    }
+
+    document.getElementById('suppliers-form').onsubmit = async e => {
+      e.preventDefault();
+      const name = document.getElementById('supplier-name').value.trim();
+      const email = document.getElementById('supplier-email').value.trim();
+      const telegram = document.getElementById('supplier-telegram').value.trim();
+
+      if (!name) return alert('Пожалуйста, заполните обязательное поле: Название.');
+
+      await fetch('/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email: email || null,
+          telegram: telegram || null
+        })
+      });
+
+      document.getElementById('supplier-name').value = '';
+      document.getElementById('supplier-email').value = '';
+      document.getElementById('supplier-telegram').value = '';
+
+      fetchSuppliers();
+    };
+
+    function toggleAllSuppliers(cb) {
+      document.querySelectorAll('#suppliers-table input[type=checkbox]').forEach(c => c.checked = cb.checked);
+    }
+
+    async function deleteSelectedSuppliers() {
+      const ids = Array.from(document.querySelectorAll('#suppliers-table input[type=checkbox]:checked')).map(c => parseInt(c.value));
+      if (!ids.length) return;
+
+      if (!confirm(`Вы уверены, что хотите удалить ${ids.length} поставщик(ов)?`)) return;
+
+      for (const id of ids) {
+        await fetch(`/suppliers/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      fetchSuppliers();
+    }
+
+    // ==== Supplier Products Management ====
+    function toggleSupplierProducts(supplierId) {
+      if (expandedSuppliers.has(supplierId)) {
+        expandedSuppliers.delete(supplierId);
+      } else {
+        expandedSuppliers.add(supplierId);
+        // Не загружаем доступные товары при раскрытии - только при взаимодействии с селектом
+        const select = document.getElementById(`available-products-select-${supplierId}`);
+        if (select) {
+          select.dataset.loaded = '';
+        }
+      }
+      // Обновляем только визуальное отображение, без запроса к серверу
+      const row = document.getElementById(`supplier-products-row-${supplierId}`);
+      if (row) {
+        if (expandedSuppliers.has(supplierId)) {
+          row.classList.add('visible');
+        } else {
+          row.classList.remove('visible');
+        }
+      }
+    }
+
+    async function loadAvailableProducts(supplierId, preserveValue = true) {
+      try {
+        const res = await fetch(`/suppliers/${supplierId}/available-products`);
+        if (!res.ok) throw new Error('Ошибка загрузки доступных товаров');
+        const products = await res.json();
+
+        const select = document.getElementById(`available-products-select-${supplierId}`);
+        if (!select) return;
+
+        const currentValue = preserveValue ? select.value : ''; // Сохраняем текущее значение только если нужно
+
+        select.innerHTML = '<option value="">-- Выберите товар --</option>';
+        products.forEach(p => {
+          const option = document.createElement('option');
+          option.value = p.id;
+          // Формируем текст: название + тип (тип в скобках)
+          option.textContent = p.name + (p.product_type ? ` (${p.product_type})` : '');
+          select.appendChild(option);
+        });
+
+        // Восстанавливаем значение, если оно было и нужно сохранить
+        if (preserveValue && currentValue) {
+          select.value = currentValue;
+        }
+      } catch (err) {
+        console.error("Ошибка при загрузке доступных товаров:", err);
+        alert("Не удалось загрузить доступные товары: " + err.message);
+      }
+    }
+
+    async function handleProductSelectChange(supplierId) {
+      // При клике на select обновляем список доступных товаров
+      // Используем focus для обновления при открытии списка
+      const select = document.getElementById(`available-products-select-${supplierId}`);
+      if (select && !select.dataset.loaded) {
+        await loadAvailableProducts(supplierId);
+        select.dataset.loaded = 'true';
+      }
+    }
+
+    async function linkProduct(supplierId) {
+      const select = document.getElementById(`available-products-select-${supplierId}`);
+      if (!select || !select.value) {
+        alert('Выберите товар для привязки');
+        return;
+      }
+
+      const productId = parseInt(select.value);
+
+      try {
+        const res = await fetch(`/suppliers/${supplierId}/products/${productId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ detail: 'Ошибка при привязке товара' }));
+          throw new Error(error.detail || 'Ошибка при привязке товара');
+        }
+
+        // Обновляем список поставщиков
+        await fetchSuppliers();
+        // Обновляем список доступных товаров и сбрасываем флаг загрузки
+        const select = document.getElementById(`available-products-select-${supplierId}`);
+        if (select) {
+          select.dataset.loaded = '';
+        }
+        await loadAvailableProducts(supplierId);
+      } catch (error) {
+        alert('Ошибка при привязке товара: ' + error.message);
+      }
+    }
+
+    async function unlinkSelectedProducts(supplierId) {
+      const checkboxes = document.querySelectorAll(`#supplier-products-table-${supplierId} input[type=checkbox]:checked`);
+      const productIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+      if (productIds.length === 0) {
+        alert('Выберите товары для отвязки');
+        return;
+      }
+
+      if (!confirm(`Вы уверены, что хотите отвязать ${productIds.length} товар(ов) от поставщика?`)) return;
+
+      try {
+        // Отвязываем товары по очереди
+        for (const productId of productIds) {
+          const res = await fetch(`/suppliers/${supplierId}/products/${productId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({ detail: 'Ошибка при отвязке товара' }));
+            throw new Error(error.detail || 'Ошибка при отвязке товара');
+          }
+        }
+
+        // Обновляем список поставщиков
+        await fetchSuppliers();
+        // Обновляем список доступных товаров и сбрасываем флаг загрузки
+        const select = document.getElementById(`available-products-select-${supplierId}`);
+        if (select) {
+          select.dataset.loaded = '';
+        }
+        await loadAvailableProducts(supplierId);
+      } catch (error) {
+        alert('Ошибка при отвязке товаров: ' + error.message);
+      }
+    }
+
+    function toggleAllSupplierProducts(supplierId, cb) {
+      document.querySelectorAll(`#supplier-products-table-${supplierId} input[type=checkbox]`).forEach(c => {
+        if (c.id !== `select-all-products-${supplierId}`) {
+          c.checked = cb.checked;
+        }
+      });
+    }
+
+    // ==== Supplier Rules Management ====
+    async function addSupplierRule(supplierId) {
+      const ruleText = document.getElementById(`supplier-rule-text-${supplierId}`).value.trim();
+      const priority = parseInt(document.getElementById(`supplier-rule-priority-${supplierId}`).value) || 100;
+      const isActive = document.getElementById(`supplier-rule-active-${supplierId}`).checked;
+
+      if (!ruleText) {
+        alert('Введите текст правила');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/suppliers/${supplierId}/rules`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rule_text: ruleText,
+            priority: priority,
+            is_active: isActive
+          })
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ detail: 'Ошибка при добавлении правила' }));
+          throw new Error(error.detail || 'Ошибка при добавлении правила');
+        }
+
+        // Очищаем форму
+        document.getElementById(`supplier-rule-text-${supplierId}`).value = '';
+        document.getElementById(`supplier-rule-priority-${supplierId}`).value = '100';
+        document.getElementById(`supplier-rule-active-${supplierId}`).checked = true;
+
+        // Обновляем список поставщиков
+        await fetchSuppliers();
+      } catch (error) {
+        alert('Ошибка при добавлении правила: ' + error.message);
+      }
+    }
+
+    function editSupplierRule(supplierId, ruleId) {
+      // Если уже редактируется другое правило - переключаемся
+      if (editingRuleId !== null && editingRuleId !== ruleId) {
+        editingRuleId = ruleId;
+        fetchSuppliers();
+        return;
+      }
+
+      editingRuleId = ruleId;
+      fetchSuppliers();
+    }
+
+    function cancelEditSupplierRule(supplierId, ruleId) {
+      editingRuleId = null;
+      fetchSuppliers();
+    }
+
+    async function saveSupplierRule(supplierId, ruleId) {
+      const ruleText = document.getElementById(`edit-rule-text-${supplierId}-${ruleId}`).value.trim();
+      const priority = parseInt(document.getElementById(`edit-rule-priority-${supplierId}-${ruleId}`).value) || 100;
+      const isActive = document.getElementById(`edit-rule-active-${supplierId}-${ruleId}`).checked;
+
+      if (!ruleText) {
+        alert('Введите текст правила');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/suppliers/${supplierId}/rules/${ruleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rule_text: ruleText,
+            priority: priority,
+            is_active: isActive
+          })
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ detail: 'Ошибка при обновлении правила' }));
+          throw new Error(error.detail || 'Ошибка при обновлении правила');
+        }
+
+        // Выходим из режима редактирования
+        editingRuleId = null;
+
+        // Обновляем список поставщиков
+        await fetchSuppliers();
+      } catch (error) {
+        alert('Ошибка при сохранении правила: ' + error.message);
+      }
+    }
+
+    function toggleAllSupplierRules(supplierId, cb) {
+      document.querySelectorAll(`#supplier-rules-table-${supplierId} input[type=checkbox][value]`).forEach(c => {
+        c.checked = cb.checked;
+      });
+    }
+
+    async function deleteSelectedSupplierRules(supplierId) {
+      const ids = Array.from(document.querySelectorAll(`#supplier-rules-table-${supplierId} input[type=checkbox][value]:checked`)).map(c => parseInt(c.value));
+      if (!ids.length) {
+        alert('Выберите правила для удаления');
+        return;
+      }
+
+      if (!confirm(`Вы уверены, что хотите удалить ${ids.length} правил(о)?`)) {
+        return;
+      }
+
+      try {
+        for (const ruleId of ids) {
+          const res = await fetch(`/suppliers/${supplierId}/rules/${ruleId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({ detail: 'Ошибка при удалении правила' }));
+            throw new Error(error.detail || 'Ошибка при удалении правила');
+          }
+        }
+
+        // Обновляем список поставщиков
+        await fetchSuppliers();
+      } catch (error) {
+        alert('Ошибка при удалении правил: ' + error.message);
+      }
+    }
+
+    // Проверка активности форм перед автообновлением
+    function shouldSkipAutoUpdate() {
+      // Проверяем активные селекты
+      const activeSelects = document.querySelectorAll('select:focus, select:active');
+      if (activeSelects.length > 0) return true;
+
+      // Проверяем активные input/textarea
+      const activeInputs = document.querySelectorAll('input:focus, textarea:focus');
+      if (activeInputs.length > 0) return true;
+
+      // Проверяем, есть ли открытые модальные окна или формы редактирования
+      if (editingSupplierId !== null || editingPointId !== null || editingProductId !== null || editingRuleId !== null) {
+        return true;
+      }
+
+      return false;
+    }
+
+
+    function safeAutoUpdateOrders() {
+      // Обновляем заказы только если вкладка "Заказы" активна
+      if (currentActiveTab === 'orders' && !shouldSkipAutoUpdate()) {
+        fetchOrders();
+      }
+    }
+
+    // Функция для обновления только badge с новыми заказами (для всех вкладок, кроме "Заказы")
+    async function updateNewOrdersBadgeOnly() {
+      // Не обновляем badge на вкладке "Заказы", там используется текущий фильтр
+      if (currentActiveTab !== 'orders' && !shouldSkipAutoUpdate()) {
+        try {
+          // Запрашиваем только заказы со статусом "new"
+          const res = await fetch('/orders?status=new');
+          if (!res.ok) return;
+          const newOrders = await res.json();
+          const newOrdersCount = newOrders.length;
+          updateNewOrdersBadge(newOrdersCount);
+        } catch (err) {
+          console.error('Ошибка при обновлении счетчика новых заказов:', err);
+        }
+      }
+    }
+
+    // Точки, товары и поставщики обновляются только при открытии вкладки и при внесении изменений
+    // Автообновление для них отключено
+
+    // ==== Автообновление ====
+    // Заказы обновляются только на вкладке "Заказы" с учетом активного фильтра
+    setInterval(safeAutoUpdateOrders, 5000);
+
+    // Новые заказы (для badge) обновляются периодически на всех вкладках, кроме "Заказы"
+    setInterval(updateNewOrdersBadgeOnly, 5000);
+
+    // Точки, товары и поставщики обновляются только при открытии вкладки и при внесении изменений
+    // Автообновление для них отключено
+
+    // Загружаем данные только для активной вкладки при загрузке страницы
+    // По умолчанию активна вкладка "Заказы"
+    if (currentActiveTab === 'orders') {
+      fetchOrders();
+    }
+  </script>
+</body>
+
+</html>
+
+</html>

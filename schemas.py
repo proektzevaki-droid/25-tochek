@@ -76,20 +76,20 @@ class OrderCreateWithName(BaseModel):
 # ---- Новые схемы для структуры запроса с массивом заказов ----
 class OrderItemRequest(BaseModel):
     """Схема для элемента заказа из входящего запроса"""
-    product_id: Union[str, int]  # Принимает строку или число
-    product_type: str
-    product_subtype: str
-    product_name: str
-    product_count: float
-    product_unit: Optional[str] = None  # Единица измерения товара
-    suppliers_id: Union[str, int]  # Принимает строку или число
-    suppliers_name: str
+    product_id: Optional[Union[str, int]] = None  # Может быть null для новых товаров
+    product_type: Optional[str] = ""
+    product_subtype: Optional[str] = ""
+    product_name: Optional[str] = ""
+    product_count: Optional[float] = 0
+    product_unit: Optional[str] = None
+    suppliers_id: Optional[Union[str, int]] = None  # Может быть null если поставщик не назначен
+    suppliers_name: Optional[str] = ""
 
 class OrderRequest(BaseModel):
     """Схема для одного заказа из входящего запроса"""
     point_id: int
-    tg_name: str
-    tg_username: str
+    tg_name: Optional[str] = ""
+    tg_username: Optional[str] = ""
     point: Optional[str] = None  # название точки (не используется в БД, но может быть полезно)
     items: List[OrderItemRequest]
     text: Optional[str] = None  # текст заказа (не используется в БД)
