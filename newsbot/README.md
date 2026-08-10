@@ -34,10 +34,14 @@
 
 ## Установка
 
+На сервере — одной командой, см. раздел «Деплой на сервер» ниже.
+Локально, для отладки:
+
 ```bash
 cd newsbot
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip setuptools wheel   # иначе на Debian падает сборка pyaes
 pip install -r requirements.txt
 ```
 
@@ -237,15 +241,38 @@ scan:
 
 ---
 
-## Автозапуск (systemd)
+## Деплой на сервер
+
+Всё делает один скрипт — запускать **на сервере**, из папки `newsbot/` внутри
+репозитория:
 
 ```bash
-sudo cp newsbot.service /etc/systemd/system/
-sudo nano /etc/systemd/system/newsbot.service   # поправить User и пути
-sudo systemctl daemon-reload
+cd /home/devartemiy/25tochek/Dashborad
+git fetch origin && git checkout claude/telegram-news-bot-filter-swmhu7 && git pull
+cd newsbot && bash deploy.sh
+```
+
+Скрипт создаст `~/newsbot` со своим venv, поставит зависимости, прогонит тесты,
+закроет права на секреты и подготовит systemd-юнит. Сервис при этом **не
+запускается** — сначала нужно заполнить `.env` и авторизовать аккаунт.
+
+Скрипт идемпотентный: при повторном запуске существующие `.env`, `config.yaml`,
+базу и файл сессии он не трогает — обновляется только код. То есть выкатка новой
+версии это те же три команды.
+
+```bash
+TARGET=/opt/newsbot bash deploy.sh   # если нужна другая папка
+```
+
+Запуск и логи:
+
+```bash
 sudo systemctl enable --now newsbot
 sudo journalctl -u newsbot -f
 ```
+
+`~/newsbot` намеренно отдельная папка от дашборда 25 точек: общий только сервер,
+код, база и сервис — независимые. Перезапуск или откат одного не задевает другой.
 
 ---
 
@@ -287,3 +314,4 @@ python test_filter.py
 | `formatter.py` | вёрстка карточки поста |
 | `login.py` | разовая авторизация аккаунта-читателя |
 | `test_filter.py` | тесты фильтра |
+| `deploy.sh` | установка и обновление на сервере |
