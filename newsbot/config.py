@@ -55,7 +55,7 @@ class FilterConfig:
 @dataclass
 class ScanConfig:
     interval_sec: int = 300
-    min_age_minutes: int = 90
+    min_age_minutes: int = 15
     max_age_hours: int = 24
     fetch_limit: int = 100
     pause_between_channels_sec: float = 2.0
@@ -241,7 +241,7 @@ def load_config(path: str | Path | None = None) -> Config:
 
     scan = ScanConfig(
         interval_sec=int(scan_raw.get("interval_sec", 300)),
-        min_age_minutes=int(scan_raw.get("min_age_minutes", 90)),
+        min_age_minutes=int(scan_raw.get("min_age_minutes", 15)),
         max_age_hours=int(scan_raw.get("max_age_hours", 24)),
         fetch_limit=int(scan_raw.get("fetch_limit", 100)),
         pause_between_channels_sec=float(scan_raw.get("pause_between_channels_sec", 2.0)),
