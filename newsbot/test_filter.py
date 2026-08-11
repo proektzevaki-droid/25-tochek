@@ -128,19 +128,29 @@ OSTASHKO_OK = [
     (("🤣", 254), ("❤️", 91)),
 ]
 
+# Посты из того же канала, которые Андрей отметил как ненужные.
+# Все ведёт 🤬 или 😢 — при том, что вторая реакция бывает вполне «хорошей».
+OSTASHKO_NO = [
+    (("🤬", 64), ("🤯", 10)),
+    (("🤬", 223), ("🤡", 55)),
+    (("🤬", 324), ("❤️", 22)),
+    (("😢", 127), ("🤬", 62)),
+    (("🤬", 649), ("❤️", 34)),
+]
+
 print("\n4. Осташко: правило «первая реакция — не про горе»")
 # Одна позиция в шаблоне — проверяется только первая реакция, остальные любые.
 ostashko = pattern_filter("!🤬|😢|😭|🙏|💩|🤮|💔|🕊|👎")
 ok = sum(1 for pairs in OSTASHKO_OK if evaluate(post(*pairs), ostashko, 0, 0)[0])
-check(f"проходят все {len(OSTASHKO_OK)} отобранных постов", ok, len(OSTASHKO_OK))
+check(f"проходят все {len(OSTASHKO_OK)} нужных поста", ok, len(OSTASHKO_OK))
 
-rejected = [
-    (("🤬", 2000), ("😁", 149)),
-    (("😢", 800), ("🙏", 400)),
-    (("🙏", 542), ("❤️", 198)),
-]
-blocked = sum(1 for pairs in rejected if not evaluate(post(*pairs), ostashko, 0, 0)[0])
-check("отсекаются посты с 🤬 / 😢 / 🙏 впереди", blocked, len(rejected))
+blocked = sum(1 for pairs in OSTASHKO_NO if not evaluate(post(*pairs), ostashko, 0, 0)[0])
+check(f"отсекаются все {len(OSTASHKO_NO)} ненужных", blocked, len(OSTASHKO_NO))
+
+# Вторая реакция ❤️ не спасает пост, если первой идёт 🤬 — режет первая позиция.
+passed, reason = evaluate(post(("🤬", 324), ("❤️", 22)), ostashko, 0, 0)
+check("🤬 впереди перевешивает ❤️ на втором месте", passed, False)
+print(f"       причина: {reason}")
 
 print("\n5. Осташко: тот же набор перечислением пар")
 # Запасной вариант, если правило окажется слишком широким.
@@ -148,7 +158,9 @@ pairs_filter = pattern_filter(
     "👍|🔥|💯|😁|🤡|❤️|🤣, 🔥|❤️|🤡|👏|👎|🤣|💯|👍|😁|🙏|🤔",
 )
 ok = sum(1 for pairs in OSTASHKO_OK if evaluate(post(*pairs), pairs_filter, 0, 0)[0])
-check(f"проходят все {len(OSTASHKO_OK)} отобранных постов", ok, len(OSTASHKO_OK))
+check(f"проходят все {len(OSTASHKO_OK)} нужных поста", ok, len(OSTASHKO_OK))
+blocked = sum(1 for pairs in OSTASHKO_NO if not evaluate(post(*pairs), pairs_filter, 0, 0)[0])
+check(f"отсекаются все {len(OSTASHKO_NO)} ненужных", blocked, len(OSTASHKO_NO))
 check(
     "но новая комбинация 🤩 + 🎉 уже не пройдёт",
     evaluate(post(("🤩", 500), ("🎉", 100)), pairs_filter, 0, 0)[0],
