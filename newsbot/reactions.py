@@ -138,6 +138,9 @@ def parse_pattern(raw: object) -> list[Slot]:
         elif any(ch in text for ch in "|!^*"):
             # Одна позиция со списком альтернатив: "👍|🔥|💯"
             items = [text]
+        elif any(ch.isalpha() for ch in text):
+            # Название реакции словом: «злой», «класс». Резать по буквам нельзя.
+            items = [text]
         else:
             # Слитная запись «👍🔥» — режем по графемам верхнего уровня.
             items = _split_emoji_run(text)
