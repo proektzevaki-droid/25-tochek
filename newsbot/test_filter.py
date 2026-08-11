@@ -12,7 +12,7 @@ from telethon.tl.types import ReactionEmoji, ReactionPaid
 
 from collector import Candidate, _reaction_counts, evaluate
 from config import FilterConfig, PatternFilter, RelativeFilter
-from reactions import parse_pattern
+from reactions import parse_pattern, pattern_label
 
 failures: list[str] = []
 
@@ -55,23 +55,35 @@ def candidate(pairs: list[tuple[str | None, int]], text: str = "новость")
     )
 
 
-def pattern_filter(*patterns: list[str]) -> FilterConfig:
+def pattern_filter(*patterns: str, match: str = "prefix") -> FilterConfig:
     """Фильтр только по порядку реакций: пороги по количеству выключены."""
     return FilterConfig(
         mode="any",
         min_reactions=0,
         relative=RelativeFilter(enabled=False),
-        pattern=PatternFilter(enabled=True, gate=True, match="prefix", patterns=list(patterns)),
+        pattern=PatternFilter(
+            enabled=True,
+            gate=True,
+            match=match,
+            patterns=[parse_pattern(p) for p in patterns],
+        ),
     )
 
 
+def post(*pairs: tuple[str, int]) -> Candidate:
+    """Пост с платной звездой впереди — так их и отдаёт Telegram."""
+    return candidate([(None, 1), *pairs])
+
+
 print("\n1. Разбор шаблонов из config.yaml")
-check("список эмодзи", parse_pattern(["💯", "❤️"]), ["💯", "❤"])
-check("слитная запись", parse_pattern("👍🔥"), ["👍", "🔥"])
-check("через запятую", parse_pattern("👍, 🔥"), ["👍", "🔥"])
-check("словами", parse_pattern("класс, огонь"), ["👍", "🔥"])
-check("словами: злой и смех", parse_pattern("злой, смех"), ["🤬", "😁"])
-check("сердце без селектора", parse_pattern(["сердце"]), ["❤"])
+check("список эмодзи", pattern_label(parse_pattern(["💯", "❤️"])), "💯 ❤️")
+check("слитная запись", pattern_label(parse_pattern("👍🔥")), "👍 🔥")
+check("через запятую", pattern_label(parse_pattern("👍, 🔥")), "👍 🔥")
+check("словами", pattern_label(parse_pattern("класс, огонь")), "класс огонь")
+check("сердце без селектора", parse_pattern(["сердце"])[0].emojis, frozenset({"❤"}))
+check("альтернативы в позиции", parse_pattern("👍|🔥")[0].emojis, frozenset({"👍", "🔥"}))
+check("отрицание", parse_pattern("!🤬|😢")[0].negate, True)
+check("звёздочка = любая", parse_pattern(["👍", "*"])[1].emojis, frozenset())
 
 print("\n2. Платная звезда ⭐ не участвует в рейтинге")
 total, breakdown, ranked = _reaction_counts(fake_message([(None, 5), ("👍", 113), ("🔥", 39)]))
@@ -83,67 +95,109 @@ print("\n3. Реакции сортируются по убыванию, даж�
 _, _, ranked = _reaction_counts(fake_message([("😢", 3), ("🔥", 39), ("👍", 113)]))
 check("порядок по количеству", ranked, ["👍", "🔥", "😢"])
 
-print("\n4. Осташко! Важное — шаблоны 👍🔥 и 💯❤️")
-ostashko = pattern_filter(parse_pattern("👍🔥"), parse_pattern("💯❤️"))
+# ─────────────────────────────────────────────────────────────────────────────
+# Осташко! Важное — 20 постов, которые Андрей отобрал как подходящие.
+# Первое число в паре — количество реакций со скриншота.
+# ─────────────────────────────────────────────────────────────────────────────
+OSTASHKO_OK = [
+    (("👍", 113), ("🔥", 39)),
+    (("💯", 587), ("❤️", 66)),
+    (("😁", 74), ("❤️", 23)),
+    (("👍", 388), ("🤡", 32)),
+    (("🔥", 520), ("👏", 87)),
+    (("🔥", 401), ("❤️", 70)),
+    (("👍", 263), ("👎", 40)),
+    (("👍", 336), ("🔥", 137)),
+    (("🤡", 344), ("🤣", 134)),
+    (("👍", 323), ("🤡", 175)),
+    (("💯", 613), ("❤️", 57)),
+    (("👍", 476), ("💯", 170)),
+    (("🔥", 466), ("👍", 99)),
+    (("👍", 489), ("🔥", 225)),
+    (("😁", 422), ("❤️", 70)),
+    (("😁", 295), ("🤣", 150)),
+    (("👍", 523), ("😁", 138)),
+    (("❤️", 367), ("🙏", 262)),
+    (("🤡", 983), ("🤣", 313)),
+    (("🔥", 574), ("😁", 98)),
+    (("👍", 1643), ("🤡", 201)),
+]
 
-# Скриншот 1: ⭐ 👍113 🔥39 ❤️11 😢3
-post = candidate([(None, 1), ("👍", 113), ("🔥", 39), ("❤️", 11), ("😢", 3)])
-passed, reason = evaluate(post, ostashko, baseline=0, samples=0)
-check("👍 первый, 🔥 второй → берём", passed, True)
+print("\n4. Осташко: правило «первая реакция — не про горе»")
+# Одна позиция в шаблоне — проверяется только первая реакция, остальные любые.
+ostashko = pattern_filter("!🤬|😢|😭|🙏|💩|🤮|💔|🕊|👎")
+ok = sum(1 for pairs in OSTASHKO_OK if evaluate(post(*pairs), ostashko, 0, 0)[0])
+check(f"проходят все {len(OSTASHKO_OK)} отобранных постов", ok, len(OSTASHKO_OK))
+
+rejected = [
+    (("🤬", 2000), ("😁", 149)),
+    (("😢", 800), ("🙏", 400)),
+    (("🙏", 542), ("❤️", 198)),
+]
+blocked = sum(1 for pairs in rejected if not evaluate(post(*pairs), ostashko, 0, 0)[0])
+check("отсекаются посты с 🤬 / 😢 / 🙏 впереди", blocked, len(rejected))
+
+print("\n5. Осташко: тот же набор перечислением пар")
+# Запасной вариант, если правило окажется слишком широким.
+pairs_filter = pattern_filter(
+    "👍|🔥|💯|😁|🤡|❤️, 🔥|❤️|🤡|👏|👎|🤣|💯|👍|😁|🙏",
+)
+ok = sum(1 for pairs in OSTASHKO_OK if evaluate(post(*pairs), pairs_filter, 0, 0)[0])
+check(f"проходят все {len(OSTASHKO_OK)} отобранных постов", ok, len(OSTASHKO_OK))
+check(
+    "но новая комбинация 🤩 + 🎉 уже не пройдёт",
+    evaluate(post(("🤩", 500), ("🎉", 100)), pairs_filter, 0, 0)[0],
+    False,
+)
+check(
+    "а по правилу из п.4 — пройдёт",
+    evaluate(post(("🤩", 500), ("🎉", 100)), ostashko, 0, 0)[0],
+    True,
+)
+
+print("\n6. Украина Online — строго 🤬 первый, 😁 второй")
+uaonline = pattern_filter("злой, смех")
+check(
+    "🤬 2.0K → 😁 149 → берём",
+    evaluate(post(("🤬", 2000), ("😁", 149), ("🙏", 130), ("❤️", 102)), uaonline, 0, 0)[0],
+    True,
+)
+passed, reason = evaluate(
+    post(("🤬", 1600), ("🙏", 542), ("❤️", 198), ("🔥", 96)), uaonline, 0, 0
+)
+check("🤬 1.6K → 🙏 542 → пропускаем", passed, False)
 print(f"       причина: {reason}")
 
-# Скриншот 2: ⭐ 💯587 ❤️66 👍45 🤡18
-post = candidate([(None, 1), ("💯", 587), ("❤️", 66), ("👍", 45), ("🤡", 18)])
-passed, reason = evaluate(post, ostashko, baseline=0, samples=0)
-check("💯 первый, ❤️ второй → берём", passed, True)
-print(f"       причина: {reason}")
+print("\n7. Режимы сопоставления")
+p = post(("🤬", 2000), ("😁", 149), ("🙏", 130))
+check("anywhere: пара подряд в середине", evaluate(p, pattern_filter("😁, 🙏", match="anywhere"), 0, 0)[0], True)
+check("top_set: порядок не важен", evaluate(p, pattern_filter("😁, 🤬", match="top_set"), 0, 0)[0], True)
+check("prefix: порядок важен", evaluate(p, pattern_filter("😁, 🤬"), 0, 0)[0], False)
+check(
+    "top_set с отрицанием",
+    evaluate(p, pattern_filter("!🤬, 🤬", match="top_set"), 0, 0)[0],
+    True,
+)
 
-# Те же эмодзи, но в другом порядке — не подходит
-post = candidate([(None, 1), ("🔥", 200), ("👍", 113), ("❤️", 11)])
-passed, reason = evaluate(post, ostashko, baseline=0, samples=0)
-check("🔥 первый, 👍 второй → пропускаем", passed, False)
-print(f"       причина: {reason}")
+print("\n8. Шаблон короче рейтинга и длиннее его")
+check(
+    "шаблон из одной позиции не смотрит на вторую",
+    evaluate(post(("👍", 500), ("💩", 400)), pattern_filter("👍"), 0, 0)[0],
+    True,
+)
+check(
+    "шаблон из трёх позиций не сработает на посте с двумя реакциями",
+    evaluate(post(("👍", 500), ("🔥", 400)), pattern_filter("👍, 🔥, ❤️"), 0, 0)[0],
+    False,
+)
+check("пост совсем без реакций", evaluate(post(), ostashko, 0, 0)[0], False)
 
-print("\n5. Украина Online — шаблон 🤬😁")
-uaonline = pattern_filter(parse_pattern("злой, смех"))
-
-# Скриншот 1: ⭐ 🤬2.0K 😁149 🙏130 ❤️102
-post = candidate([(None, 1), ("🤬", 2000), ("😁", 149), ("🙏", 130), ("❤️", 102)])
-passed, reason = evaluate(post, uaonline, baseline=0, samples=0)
-check("🤬 первый, 😁 второй → берём", passed, True)
-print(f"       причина: {reason}")
-
-# Скриншот 2: ⭐ 🤬1.6K 🙏542 ❤️198 🔥96 — второй смайл не тот
-post = candidate([(None, 1), ("🤬", 1600), ("🙏", 542), ("❤️", 198), ("🔥", 96)])
-passed, reason = evaluate(post, uaonline, baseline=0, samples=0)
-check("🤬 первый, 🙏 второй → пропускаем", passed, False)
-print(f"       причина: {reason}")
-
-print("\n6. Режимы сопоставления")
-post = candidate([(None, 1), ("🤬", 2000), ("😁", 149), ("🙏", 130)])
-anywhere = pattern_filter(["😁", "🙏"])
-anywhere.pattern.match = "anywhere"
-check("anywhere: пара подряд в середине", evaluate(post, anywhere, 0, 0)[0], True)
-
-top_set = pattern_filter(["😁", "🤬"])
-top_set.pattern.match = "top_set"
-check("top_set: те же двое в топе, порядок не важен", evaluate(post, top_set, 0, 0)[0], True)
-
-prefix = pattern_filter(["😁", "🤬"])
-check("prefix: порядок важен", evaluate(post, prefix, 0, 0)[0], False)
-
-print("\n7. Порог по количеству продолжает работать вместе с шаблоном")
-strict = pattern_filter(parse_pattern("👍🔥"))
+print("\n9. Порог по количеству работает вместе с шаблоном")
+strict = pattern_filter("👍🔥")
 strict.min_reactions = 1000
 strict.mode = "all"
-post = candidate([(None, 1), ("👍", 113), ("🔥", 39)])
-check("шаблон совпал, но реакций мало → пропускаем", evaluate(post, strict, 0, 0)[0], False)
-post = candidate([(None, 1), ("👍", 1500), ("🔥", 400)])
-check("шаблон совпал и реакций много → берём", evaluate(post, strict, 0, 0)[0], True)
-
-print("\n8. Пост совсем без реакций")
-post = candidate([])
-check("нет реакций → пропускаем", evaluate(post, ostashko, 0, 0)[0], False)
+check("шаблон совпал, реакций мало → мимо", evaluate(post(("👍", 113), ("🔥", 39)), strict, 0, 0)[0], False)
+check("шаблон совпал, реакций много → берём", evaluate(post(("👍", 1500), ("🔥", 400)), strict, 0, 0)[0], True)
 
 print()
 if failures:

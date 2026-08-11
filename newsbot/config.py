@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-from reactions import parse_pattern
+from reactions import Slot, parse_pattern
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -36,7 +36,7 @@ class PatternFilter:
     enabled: bool = False
     gate: bool = True  # True — обязательное условие; False — участвует в mode any/all
     match: str = "prefix"  # prefix | anywhere | top_set
-    patterns: list[list[str]] = field(default_factory=list)
+    patterns: list[list[Slot]] = field(default_factory=list)
 
 
 @dataclass

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from itertools import permutations
+
 # Служебные символы, из-за которых одна и та же реакция выглядит по-разному:
 # вариационные селекторы (❤️ против ❤) и модификаторы тона кожи.
 _INVISIBLE = {"️", "︎"}
@@ -72,20 +75,78 @@ def resolve(token: str) -> str:
     return normalize(token)
 
 
-def parse_pattern(raw: object) -> list[str]:
-    """Шаблон можно писать списком ["👍","🔥"] или строкой "класс, огонь" / "👍🔥"."""
+@dataclass(frozen=True)
+class Slot:
+    """Требование к одной позиции рейтинга реакций.
+
+    emojis пустой  → подходит любая реакция («*»)
+    negate = True  → подходит любая, КРОМЕ перечисленных («!🤬|😢»)
+    """
+
+    emojis: frozenset[str]
+    negate: bool = False
+    label: str = "*"
+
+    def accepts(self, emoji: str) -> bool:
+        if not self.emojis:
+            return True
+        return (emoji not in self.emojis) if self.negate else (emoji in self.emojis)
+
+
+ANY_TOKENS = {"*", "любая", "любой", "любое", "any"}
+
+
+def parse_slot(raw: object) -> Slot:
+    """Разбирает одну позицию шаблона.
+
+    "👍"          — ровно эта реакция
+    "👍|🔥|💯"     — любая из перечисленных
+    "!🤬|😢"       — любая, кроме перечисленных
+    "*"           — любая
+    """
+    label = str(raw).strip()
+    body = label
+    negate = False
+    if body[:1] in ("!", "^", "-"):
+        negate = True
+        body = body[1:].strip()
+
+    if not body or body.lower() in ANY_TOKENS:
+        return Slot(frozenset(), False, "*")
+
+    emojis = frozenset(e for e in (resolve(alt) for alt in body.split("|")) if e)
+    if not emojis:
+        return Slot(frozenset(), False, "*")
+    return Slot(emojis, negate, label)
+
+
+def parse_pattern(raw: object) -> list[Slot]:
+    """Шаблон — список требований по позициям, от первой реакции к последней.
+
+    Записывать можно списком ["👍","🔥"], строкой "класс, огонь" или слитно "👍🔥".
+    Длина шаблона задаёт, сколько первых позиций проверяется: шаблон из одного
+    элемента смотрит только на первую реакцию и не трогает остальные.
+    """
     if isinstance(raw, (list, tuple)):
         items = [str(x) for x in raw]
     else:
         text = str(raw).strip()
-        if any(sep in text for sep in (",", "+", ">", "|")):
-            items = [part for part in _split_any(text, ",+>|")]
+        if any(sep in text for sep in (",", ">")):
+            items = _split_any(text, ",>")
         elif " " in text:
             items = text.split()
+        elif any(ch in text for ch in "|!^*"):
+            # Одна позиция со списком альтернатив: "👍|🔥|💯"
+            items = [text]
         else:
             # Слитная запись «👍🔥» — режем по графемам верхнего уровня.
             items = _split_emoji_run(text)
-    return [e for e in (resolve(item) for item in items) if e]
+    return [parse_slot(item) for item in items if str(item).strip()]
+
+
+def pattern_label(pattern: list[Slot]) -> str:
+    """Человекочитаемая запись шаблона для логов и команды /channels."""
+    return " ".join(slot.label for slot in pattern)
 
 
 def _split_any(text: str, separators: str) -> list[str]:
@@ -110,20 +171,28 @@ def _split_emoji_run(text: str) -> list[str]:
     return [normalize(e) for e in out if normalize(e)]
 
 
-def matches(ranked: list[str], pattern: list[str], mode: str = "prefix") -> bool:
+def matches(ranked: list[str], pattern: list[Slot], mode: str = "prefix") -> bool:
     """Проверяет рейтинг реакций поста против шаблона.
 
     ranked  — эмодзи по убыванию числа реакций, платная звезда уже исключена.
-    mode    — prefix: шаблон должен совпасть с началом рейтинга;
+    mode    — prefix: шаблон совпадает с началом рейтинга;
               anywhere: шаблон идёт подряд в любом месте рейтинга;
-              top_set: те же эмодзи в топе, порядок не важен.
+              top_set: те же требования к топу, но порядок не важен.
     """
-    if not pattern or len(ranked) < len(pattern):
+    span = len(pattern)
+    if not span or len(ranked) < span:
         return False
 
     if mode == "top_set":
-        return set(pattern) == set(ranked[: len(pattern)])
+        # Требований мало (обычно 2–3), поэтому перебор вариантов дешевле
+        # аккуратного паросочетания и заметно понятнее.
+        return any(
+            all(slot.accepts(emoji) for slot, emoji in zip(pattern, perm))
+            for perm in permutations(ranked[:span])
+        )
     if mode == "anywhere":
-        span = len(pattern)
-        return any(ranked[i : i + span] == pattern for i in range(len(ranked) - span + 1))
-    return ranked[: len(pattern)] == pattern
+        return any(
+            all(slot.accepts(ranked[start + i]) for i, slot in enumerate(pattern))
+            for start in range(len(ranked) - span + 1)
+        )
+    return all(slot.accepts(emoji) for slot, emoji in zip(pattern, ranked))

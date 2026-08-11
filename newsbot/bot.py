@@ -15,6 +15,7 @@ from aiogram.types import BotCommand, LinkPreviewOptions, Message
 
 from config import Config
 from formatter import human_number, render_digest_header, render_post
+from reactions import pattern_label
 from storage import Storage
 
 log = logging.getLogger("newsbot.bot")
@@ -170,7 +171,7 @@ def build_dispatcher(cfg: Config, store: Storage, sender: Sender) -> Dispatcher:
             flt = ch.filters
             parts = []
             if flt.pattern.enabled and flt.pattern.patterns:
-                shown = " или ".join("".join(p) for p in flt.pattern.patterns[:4])
+                shown = " или ".join(pattern_label(p) for p in flt.pattern.patterns[:4])
                 parts.append(f"порядок реакций {shown}")
             if flt.min_reactions:
                 parts.append(f"от {flt.min_reactions} реакций")

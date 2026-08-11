@@ -14,7 +14,7 @@ from telethon.errors import ChannelPrivateError, FloodWaitError, UsernameNotOccu
 from telethon.tl.types import Message
 
 from config import ChannelConfig, Config, FilterConfig
-from reactions import UNKNOWN_MARKER, matches, normalize
+from reactions import UNKNOWN_MARKER, matches, normalize, pattern_label
 from storage import Storage
 
 log = logging.getLogger("newsbot.collector")
@@ -96,7 +96,7 @@ def evaluate(cand: Candidate, flt: FilterConfig, baseline: float, samples: int) 
     if pat.enabled and pat.patterns:
         hit = next((p for p in pat.patterns if matches(cand.ranked, p, pat.match)), None)
         rating = " ".join(cand.ranked[:4]) or "реакций нет"
-        note = f"реакции {' '.join(hit)}" if hit else f"реакции {rating}"
+        note = f"реакции {rating} по шаблону {pattern_label(hit)}" if hit else f"реакции {rating}"
         if pat.gate:
             # Жёсткое требование: не совпал порядок — пост не берём.
             if hit is None:
