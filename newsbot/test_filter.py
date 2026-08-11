@@ -237,12 +237,12 @@ UAONLINE_PAIRS = [
     "🤬, 😁",
     "🤬, 🙏",
     "🤬, 😢",
-    "🤬, 🤯",
+    "🤬, 🤯|🥴",  # какой именно смайл на скриншоте — не разобрать, годятся оба
     "🤬, 🔥",
     "🤬, ❤️",
     "🙏, 🤬",
     "🙏, ❤️",
-    "😢, 😨",
+    "😢, 😨|😱",  # то же самое: и испуг, и шок
     "😢, 🙏",
     "😢, 🤬",
     "😁, 🤬",
@@ -253,6 +253,12 @@ uaonline = pattern_filter(*UAONLINE_PAIRS)
 ok = sum(1 for pairs in UAONLINE_OK if evaluate(post(*pairs), uaonline, 0, 0)[0])
 check(f"проходят все {len(UAONLINE_OK)} нужных поста", ok, len(UAONLINE_OK))
 check("различных сочетаний в списке", len(UAONLINE_PAIRS), 12)
+
+# Спорные позиции приняты в обоих вариантах прочтения.
+for second in ("🤯", "🥴"):
+    check(f"🤬 → {second} проходит", evaluate(post(("🤬", 3244), (second, 353)), uaonline, 0, 0)[0], True)
+for second in ("😨", "😱"):
+    check(f"😢 → {second} проходит", evaluate(post(("😢", 888), (second, 127)), uaonline, 0, 0)[0], True)
 
 # Список закрытый: чего в нём нет — то не нужно.
 for pairs in ((("👍", 800), ("🔥", 400)), (("🤬", 900), ("👍", 300)), (("❤️", 500), ("🙏", 200))):
