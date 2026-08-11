@@ -20,6 +20,20 @@ from telethon.tl.types import Channel
 BASE_DIR = Path(__file__).resolve().parent
 
 
+async def whoami(session_path: Path, api_id: int, api_hash: str) -> int:
+    """Печатает только user_id уже авторизованного аккаунта. Ничего не спрашивает."""
+    client = TelegramClient(str(session_path), api_id, api_hash)
+    await client.connect()
+    if not await client.is_user_authorized():
+        await client.disconnect()
+        print("Сессия не авторизована", file=sys.stderr)
+        return 1
+    me = await client.get_me()
+    print(me.id)
+    await client.disconnect()
+    return 0
+
+
 async def run(list_channels: bool, session: str) -> int:
     load_dotenv(BASE_DIR / ".env")
     api_id = os.getenv("TG_API_ID", "").strip()
@@ -60,8 +74,22 @@ async def run(list_channels: bool, session: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Авторизация аккаунта-читателя")
     parser.add_argument("--list", action="store_true", help="вывести каналы в формате config.yaml")
+    parser.add_argument("--whoami", action="store_true", help="напечатать user_id и выйти")
     parser.add_argument("--session", default="newsbot.session", help="путь к файлу сессии")
     args = parser.parse_args()
+
+    if args.whoami:
+        load_dotenv(BASE_DIR / ".env")
+        api_id = os.getenv("TG_API_ID", "").strip()
+        api_hash = os.getenv("TG_API_HASH", "").strip()
+        if not api_id.isdigit() or not api_hash:
+            print("Не заданы TG_API_ID / TG_API_HASH", file=sys.stderr)
+            return 1
+        session_path = Path(args.session)
+        if not session_path.is_absolute():
+            session_path = BASE_DIR / session_path
+        return asyncio.run(whoami(session_path, int(api_id), api_hash))
+
     return asyncio.run(run(args.list, args.session))
 
 
